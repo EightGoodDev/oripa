@@ -10,6 +10,7 @@ interface ConfirmDialogProps {
   title: string;
   message: string;
   confirmLabel?: string;
+  confirmVariant?: "gold" | "outline" | "danger" | "ghost";
   loading?: boolean;
 }
 
@@ -20,6 +21,7 @@ export default function ConfirmDialog({
   title,
   message,
   confirmLabel = "削除",
+  confirmVariant = "danger",
   loading = false,
 }: ConfirmDialogProps) {
   return (
@@ -32,7 +34,7 @@ export default function ConfirmDialog({
             キャンセル
           </Button>
           <Button
-            variant="danger"
+            variant={confirmVariant}
             size="sm"
             onClick={onConfirm}
             disabled={loading}

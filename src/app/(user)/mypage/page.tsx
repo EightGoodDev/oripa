@@ -35,13 +35,13 @@ export default function MyPage() {
   const { data: session } = useSession();
   const router = useRouter();
 
-  const { data: inventory } = useQuery<OwnedItemView[]>({
+  const { data: inventory, isLoading: loadingInv } = useQuery<OwnedItemView[]>({
     queryKey: ["inventory"],
     queryFn: () => fetch("/api/user/inventory").then((r) => r.json()),
     enabled: !!session?.user,
   });
 
-  const { data: history } = useQuery<DrawHistoryView[]>({
+  const { data: history, isLoading: loadingHist } = useQuery<DrawHistoryView[]>({
     queryKey: ["history"],
     queryFn: () => fetch("/api/user/history").then((r) => r.json()),
     enabled: !!session?.user,
@@ -109,7 +109,16 @@ export default function MyPage() {
       <h2 className="text-base font-bold text-white mt-6 mb-3">
         獲得アイテム
       </h2>
-      {!inventory || inventory.length === 0 ? (
+      {loadingInv ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-16 bg-gray-900 rounded-lg border border-gray-800 animate-pulse"
+            />
+          ))}
+        </div>
+      ) : !inventory || inventory.length === 0 ? (
         <p className="text-gray-500 text-sm">まだアイテムがありません</p>
       ) : (
         <div className="space-y-2">
@@ -159,7 +168,16 @@ export default function MyPage() {
 
       {/* Draw History */}
       <h2 className="text-base font-bold text-white mt-6 mb-3">抽選履歴</h2>
-      {!history || history.length === 0 ? (
+      {loadingHist ? (
+        <div className="space-y-1.5">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-12 bg-gray-900/50 rounded-lg animate-pulse"
+            />
+          ))}
+        </div>
+      ) : !history || history.length === 0 ? (
         <p className="text-gray-500 text-sm">まだ抽選していません</p>
       ) : (
         <div className="space-y-1.5">

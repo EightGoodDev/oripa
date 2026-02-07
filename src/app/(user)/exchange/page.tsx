@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import Image from "next/image";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import { formatCoins } from "@/lib/utils/format";
 import type { Rarity } from "@prisma/client";
 
@@ -23,8 +26,9 @@ export default function ExchangePage() {
   const { data: session } = useSession();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [confirmTarget, setConfirmTarget] = useState<ExchangeItem | null>(null);
 
-  const { data: items } = useQuery<ExchangeItem[]>({
+  const { data: items, isLoading } = useQuery<ExchangeItem[]>({
     queryKey: ["exchangeable-items"],
     queryFn: () =>
       fetch("/api/user/inventory?status=OWNED").then((r) => r.json()),
@@ -41,6 +45,10 @@ export default function ExchangePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["exchangeable-items"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      toast.success("コインに交換しました");
+    },
+    onError: () => {
+      toast.error("交換に失敗しました");
     },
   });
 
@@ -56,7 +64,16 @@ export default function ExchangePage() {
         獲得したアイテムをコインに交換できます
       </p>
 
-      {!items || items.length === 0 ? (
+      {isLoading ? (
+        <div className="space-y-2 px-4">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-20 bg-gray-900 rounded-lg border border-gray-800 animate-pulse"
+            />
+          ))}
+        </div>
+      ) : !items || items.length === 0 ? (
         <div className="text-center py-16 text-gray-500">
           交換可能なアイテムがありません
         </div>
@@ -89,15 +106,7 @@ export default function ExchangePage() {
                 size="sm"
                 variant="outline"
                 disabled={exchangeMutation.isPending}
-                onClick={() => {
-                  if (
-                    confirm(
-                      `${item.prize.name}を${formatCoins(item.prize.coinValue)}コインに交換しますか？`,
-                    )
-                  ) {
-                    exchangeMutation.mutate(item.id);
-                  }
-                }}
+                onClick={() => setConfirmTarget(item)}
               >
                 交換
               </Button>
@@ -105,6 +114,26 @@ export default function ExchangePage() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={!!confirmTarget}
+        onClose={() => setConfirmTarget(null)}
+        onConfirm={() => {
+          if (confirmTarget) {
+            exchangeMutation.mutate(confirmTarget.id);
+            setConfirmTarget(null);
+          }
+        }}
+        title="コイン交換"
+        message={
+          confirmTarget
+            ? `${confirmTarget.prize.name}を${formatCoins(confirmTarget.prize.coinValue)}コインに交換しますか？`
+            : ""
+        }
+        confirmLabel="交換する"
+        confirmVariant="gold"
+        loading={exchangeMutation.isPending}
+      />
     </div>
   );
 }

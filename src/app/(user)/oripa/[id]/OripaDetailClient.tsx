@@ -9,6 +9,7 @@ import type { PackDetail, DrawResultResponse, GachaDrawResponse } from "@/types"
 import RemainingBar from "@/components/oripa/RemainingBar";
 import PrizeList from "@/components/oripa/PrizeList";
 import GachaModal from "@/components/gacha/GachaModal";
+import ConfirmDialog from "@/components/admin/ConfirmDialog";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import { formatCoins, formatDate } from "@/lib/utils/format";
@@ -22,6 +23,7 @@ export default function OripaDetailClient({ pack }: { pack: PackDetail }) {
   const [isTrial, setIsTrial] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [remainingStock, setRemainingStock] = useState(pack.remainingStock);
+  const [pendingDraw, setPendingDraw] = useState<number | null>(null);
 
   const handleDraw = useCallback(
     async (count: number, trial: boolean) => {
@@ -66,25 +68,27 @@ export default function OripaDetailClient({ pack }: { pack: PackDetail }) {
 
   return (
     <div className="pb-6">
-      {/* Hero */}
-      <div className="relative aspect-[4/3] bg-gray-800">
-        <Image
-          src={pack.image}
-          alt={pack.title}
-          fill
-          className="object-cover"
-          sizes="100vw"
-          priority
-        />
-        {pack.featured && (
-          <span className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded">
-            注目
-          </span>
-        )}
-      </div>
+      {/* Desktop: side-by-side layout */}
+      <div className="lg:flex lg:gap-8 lg:px-4 lg:pt-4">
+        {/* Hero */}
+        <div className="relative aspect-[4/3] bg-gray-800 lg:w-1/2 lg:rounded-xl lg:overflow-hidden lg:shrink-0 lg:aspect-square">
+          <Image
+            src={pack.image}
+            alt={pack.title}
+            fill
+            className="object-cover"
+            sizes="(min-width: 1024px) 50vw, 100vw"
+            priority
+          />
+          {pack.featured && (
+            <span className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded">
+              注目
+            </span>
+          )}
+        </div>
 
-      {/* Info */}
-      <div className="px-4 pt-4">
+        {/* Info */}
+        <div className="px-4 pt-4 lg:px-0 lg:flex-1">
         <h1 className="text-xl font-bold text-white">{pack.title}</h1>
         <p className="text-sm text-gray-400 mt-1">{pack.description}</p>
 
@@ -145,7 +149,7 @@ export default function OripaDetailClient({ pack }: { pack: PackDetail }) {
             size="lg"
             className="w-full"
             disabled={soldOut || isDrawing}
-            onClick={() => handleDraw(1, false)}
+            onClick={() => setPendingDraw(1)}
           >
             {soldOut
               ? "完売"
@@ -157,7 +161,7 @@ export default function OripaDetailClient({ pack }: { pack: PackDetail }) {
               size="lg"
               className="w-full"
               disabled={isDrawing}
-              onClick={() => handleDraw(10, false)}
+              onClick={() => setPendingDraw(10)}
             >
               10回引く（{formatCoins(pack.pricePerDraw * 10)}コイン）
             </Button>
@@ -172,6 +176,7 @@ export default function OripaDetailClient({ pack }: { pack: PackDetail }) {
             お試し引き（無料）
           </Button>
         </div>
+      </div>
       </div>
 
       {/* Prize list */}
@@ -196,6 +201,27 @@ export default function OripaDetailClient({ pack }: { pack: PackDetail }) {
         }}
         results={gachaResults}
         isTrial={isTrial}
+      />
+
+      {/* Draw confirmation */}
+      <ConfirmDialog
+        isOpen={pendingDraw !== null}
+        onClose={() => setPendingDraw(null)}
+        onConfirm={() => {
+          if (pendingDraw) {
+            handleDraw(pendingDraw, false);
+            setPendingDraw(null);
+          }
+        }}
+        title="ガチャを引く"
+        message={
+          pendingDraw
+            ? `${formatCoins(pack.pricePerDraw * pendingDraw)}コインを消費して${pendingDraw}回引きますか？`
+            : ""
+        }
+        confirmLabel={`${pendingDraw ?? 1}回引く`}
+        confirmVariant="gold"
+        loading={isDrawing}
       />
     </div>
   );
