@@ -1,0 +1,67 @@
+{
+  "app": {
+    "[project]/src/app/(admin)/admin/dashboard/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(admin)/admin/packs/[id]/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(admin)/admin/packs/new/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(admin)/admin/packs/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(admin)/admin/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(admin)/admin/plans/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(admin)/admin/prizes/[id]/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(admin)/admin/prizes/new/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(admin)/admin/prizes/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(admin)/admin/users/[id]/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(admin)/admin/users/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(auth)/login/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(auth)/register/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(user)/charge/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(user)/exchange/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(user)/mypage/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(user)/oripa/[id]/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(user)/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/(user)/ranking/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ],
+    "[project]/src/app/_not-found/page": [
+      "static/media/ad9c66e761fed85a-s.p.bd81a64b.woff2"
+    ]
+  },
+  "appUsingSizeAdjust": true,
+  "pages": {},
+  "pagesUsingSizeAdjust": false
+}

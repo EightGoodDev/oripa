@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  --color-gold-start: #FFE357;
+  --color-gold-end: #FFD71F;
+  --color-gold-mid: #FFDA3B;
+  --font-sans: "Noto Sans JP", sans-serif;
+}
+
+/* Hide scrollbar for tabs */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
