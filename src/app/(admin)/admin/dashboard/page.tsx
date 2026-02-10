@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import StatCard from "@/components/admin/StatCard";
-import { formatPrice } from "@/lib/utils/format";
+import { formatCoins, formatPrice } from "@/lib/utils/format";
 import {
   AreaChart,
   Area,
@@ -23,13 +23,94 @@ interface DashboardStats {
   dailyDraws: { date: string; count: number }[];
 }
 
+const EMPTY_STATS: DashboardStats = {
+  totalUsers: 0,
+  newUsersToday: 0,
+  totalRevenue: 0,
+  drawsToday: 0,
+  activePacks: 0,
+  soldOutPacks: 0,
+  dailyDraws: [],
+};
+
+function toSafeNumber(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return 0;
+}
+
+function normalizeStats(payload: unknown): DashboardStats {
+  if (!payload || typeof payload !== "object") {
+    return EMPTY_STATS;
+  }
+
+  const raw = payload as Record<string, unknown>;
+  const dailyDraws = Array.isArray(raw.dailyDraws)
+    ? raw.dailyDraws
+        .map((row) => {
+          if (!row || typeof row !== "object") return null;
+          const item = row as Record<string, unknown>;
+          if (typeof item.date !== "string") return null;
+          return {
+            date: item.date,
+            count: toSafeNumber(item.count),
+          };
+        })
+        .filter(
+          (row): row is DashboardStats["dailyDraws"][number] => row !== null
+        )
+    : [];
+
+  return {
+    totalUsers: toSafeNumber(raw.totalUsers),
+    newUsersToday: toSafeNumber(raw.newUsersToday),
+    totalRevenue: toSafeNumber(raw.totalRevenue),
+    drawsToday: toSafeNumber(raw.drawsToday),
+    activePacks: toSafeNumber(raw.activePacks),
+    soldOutPacks: toSafeNumber(raw.soldOutPacks),
+    dailyDraws,
+  };
+}
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/stats")
-      .then((res) => res.json())
-      .then(setStats);
+    let cancelled = false;
+
+    const loadStats = async () => {
+      try {
+        const res = await fetch("/api/admin/stats", { cache: "no-store" });
+        if (!res.ok) {
+          throw new Error(`stats request failed: ${res.status}`);
+        }
+
+        const payload: unknown = await res.json();
+        if (!cancelled) {
+          setStats(normalizeStats(payload));
+        }
+      } catch (error) {
+        console.error("[Admin Dashboard] Failed to load stats:", error);
+        if (!cancelled) {
+          setStats(EMPTY_STATS);
+        }
+      }
+    };
+
+    void loadStats();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (!stats) {
@@ -47,7 +128,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <StatCard
           title="ユーザー数"
-          value={stats.totalUsers.toLocaleString("ja-JP")}
+          value={formatCoins(stats.totalUsers)}
           sub={`今日 +${stats.newUsersToday}`}
         />
         <StatCard
@@ -56,7 +137,7 @@ export default function DashboardPage() {
         />
         <StatCard
           title="今日のガチャ"
-          value={stats.drawsToday.toLocaleString("ja-JP")}
+          value={formatCoins(stats.drawsToday)}
         />
         <StatCard
           title="アクティブパック"
