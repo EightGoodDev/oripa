@@ -268,7 +268,7 @@ export default function HomeClient({
                 )}
 
                 {event.packs.length > 0 ? (
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3">
                     {event.packs.map((pack) => (
                       <OripaCard key={pack.id} pack={pack} />
                     ))}

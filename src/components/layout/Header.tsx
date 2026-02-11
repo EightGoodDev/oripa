@@ -21,7 +21,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-800 bg-gray-900/95 backdrop-blur supports-[backdrop-filter]:bg-gray-900/85">
-      <div className="max-w-md lg:max-w-4xl mx-auto flex items-center justify-between px-4 h-14">
+      <div className="w-full max-w-[1600px] mx-auto flex items-center justify-between px-4 h-14">
         <div className="flex items-center gap-8">
           <Link href="/" className="text-xl font-bold text-white tracking-tight">
             <span className="bg-gradient-to-r from-gold-start to-gold-end bg-clip-text text-transparent">
@@ -75,9 +75,9 @@ export default function Header() {
       </div>
 
       <div className="border-t border-gray-800 bg-gray-950/80">
-        <div className="max-w-md lg:max-w-4xl mx-auto h-8 px-4 flex items-center justify-between gap-3 text-[11px]">
-          <p className="text-gray-500 truncate">運営: {operatorName}</p>
-          <div className="flex items-center gap-3 shrink-0">
+        <div className="w-full max-w-[1600px] mx-auto min-h-8 px-4 py-1 flex items-center justify-between gap-2 text-[11px]">
+          <p className="text-gray-500 truncate hidden sm:block">運営: {operatorName}</p>
+          <div className="flex items-center gap-3 overflow-x-auto whitespace-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <Link href="/operator" className="text-gray-400 hover:text-white">
               運営者情報
             </Link>

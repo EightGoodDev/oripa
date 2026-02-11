@@ -16,7 +16,7 @@ export default function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-800 lg:hidden">
-      <div className="max-w-md lg:max-w-4xl mx-auto flex">
+      <div className="w-full max-w-[1600px] mx-auto flex">
         {tabs.map((tab) => {
           const isActive =
             tab.href === "/"
