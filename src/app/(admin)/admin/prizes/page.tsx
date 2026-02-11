@@ -210,14 +210,14 @@ export default function PrizesPage() {
                 key={prize.id}
                 type="button"
                 onClick={() => router.push(`/admin/prizes/${prize.id}`)}
-                className="group text-left rounded-xl border border-gray-800 bg-gray-950/60 overflow-hidden hover:border-gold-mid/50 transition"
+                className="group text-left bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-gray-600 transition-colors"
               >
                 <div className="aspect-square bg-gray-800 overflow-hidden">
                   {prize.image ? (
                     <img
                       src={prize.image}
                       alt={prize.name}
-                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full grid place-items-center text-xs text-gray-500">
@@ -225,23 +225,23 @@ export default function PrizesPage() {
                     </div>
                   )}
                 </div>
-                <div className="p-3 space-y-2">
+                <div className="p-3">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-semibold text-white line-clamp-2">
+                    <p className="text-sm font-bold text-white line-clamp-2 group-hover:text-yellow-400 transition-colors">
                       {prize.name}
                     </p>
                     <Badge rarity={prize.rarity} />
                   </div>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 mt-1">
                     ジャンル: {getCategoryLabel(prize.genre)}
                   </p>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-300 mt-2">
                     <div>市場: {formatPrice(prize.marketPrice)}</div>
                     <div>原価: {formatPrice(prize.costPrice)}</div>
                     <div>価値: {formatCoins(prize.coinValue)}</div>
                     <div>使用: {prize._count.packPrizes}</div>
                   </div>
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-[11px] text-gray-500 mt-2">
                     作成日: {formatDate(prize.createdAt)}
                   </p>
                 </div>

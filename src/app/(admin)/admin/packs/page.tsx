@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import DataTable, { type Column } from "@/components/admin/DataTable";
 import Button from "@/components/ui/Button";
-import { formatPrice, formatDate } from "@/lib/utils/format";
+import RemainingBar from "@/components/oripa/RemainingBar";
+import { formatPrice, formatDate, formatCoins } from "@/lib/utils/format";
 import { getCategoryLabel } from "@/types";
 
 interface Pack {
@@ -18,6 +19,7 @@ interface Pack {
   remainingStock: number;
   status: string;
   featured: boolean;
+  lastOnePrizeId?: string | null;
   createdAt: string;
   _count: { packPrizes: number; draws: number };
 }
@@ -195,44 +197,56 @@ export default function PacksPage() {
                 key={pack.id}
                 type="button"
                 onClick={() => router.push(`/admin/packs/${pack.id}`)}
-                className="group text-left rounded-xl border border-gray-800 bg-gray-950/60 overflow-hidden hover:border-gold-mid/50 transition"
+                className="group text-left bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-gray-600 transition-colors"
               >
-                <div className="aspect-[16/9] bg-gray-800 overflow-hidden">
+                <div className="relative aspect-square bg-gray-800 overflow-hidden">
                   {pack.image ? (
                     <img
                       src={pack.image}
                       alt={pack.title}
-                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full grid place-items-center text-xs text-gray-500">
                       画像なし
                     </div>
                   )}
+                  {pack.featured && (
+                    <span className="absolute top-2 left-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                      注目
+                    </span>
+                  )}
+                  {pack.totalStock > 0 && pack.remainingStock / pack.totalStock < 0.15 && (
+                    <span className="absolute top-2 right-2 bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded animate-pulse">
+                      残りわずか
+                    </span>
+                  )}
+                  {!!pack.lastOnePrizeId && (
+                    <span className="absolute bottom-2 left-2 bg-purple-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                      ラストワン賞
+                    </span>
+                  )}
                 </div>
-                <div className="p-3 space-y-2">
+                <div className="p-3">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-semibold text-white line-clamp-2">
+                    <h3 className="text-sm font-bold text-white truncate group-hover:text-yellow-400 transition-colors">
                       {pack.title}
-                    </p>
-                    <span
-                      className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium shrink-0 ${STATUS_STYLES[pack.status] || ""}`}
-                    >
+                    </h3>
+                    <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-medium shrink-0 ${STATUS_STYLES[pack.status] || ""}`}>
                       {STATUS_LABELS[pack.status] || pack.status}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-400">
-                    {getCategoryLabel(pack.category)}
+                  <p className="text-yellow-400 font-bold text-sm mt-1">
+                    🪙 {formatCoins(pack.pricePerDraw)} / 回
                   </p>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
-                    <div>価格: {formatPrice(pack.pricePerDraw)}</div>
-                    <div>景品数: {pack._count.packPrizes}</div>
-                    <div>在庫: {pack.remainingStock}</div>
-                    <div>総数: {pack.totalStock}</div>
+                  <div className="mt-2">
+                    <RemainingBar remaining={pack.remainingStock} total={pack.totalStock} />
                   </div>
-                  <p className="text-[11px] text-gray-500">
-                    作成日: {formatDate(pack.createdAt)}
-                  </p>
+                  <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-gray-400">
+                    <span>{getCategoryLabel(pack.category)}</span>
+                    <span>景品 {pack._count.packPrizes}</span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-1">作成日: {formatDate(pack.createdAt)}</p>
                 </div>
               </button>
             ))}

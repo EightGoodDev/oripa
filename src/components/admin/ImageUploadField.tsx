@@ -13,6 +13,8 @@ interface ImageUploadFieldProps {
   placeholder?: string;
   inputClassName?: string;
   recommendedSize?: string;
+  previewClassName?: string;
+  previewObjectFit?: "contain" | "cover";
 }
 
 export default function ImageUploadField({
@@ -23,6 +25,8 @@ export default function ImageUploadField({
   placeholder = "https://...",
   inputClassName = "w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gold-mid",
   recommendedSize,
+  previewClassName = "w-32 h-32",
+  previewObjectFit = "contain",
 }: ImageUploadFieldProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -115,11 +119,13 @@ export default function ImageUploadField({
       )}
 
       {value && /^https?:\/\/.+/.test(value) && (
-        <div>
+        <div
+          className={`overflow-hidden rounded-lg border border-gray-700 bg-gray-900 ${previewClassName}`}
+        >
           <img
             src={value}
             alt="プレビュー"
-            className="w-32 h-32 object-cover rounded-lg border border-gray-700"
+            className={`w-full h-full ${previewObjectFit === "cover" ? "object-cover" : "object-contain"}`}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
             }}
