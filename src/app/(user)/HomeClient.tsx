@@ -7,7 +7,8 @@ import type { PackListItem, HomeBannerItem, HomeEventItem } from "@/types";
 import { CATEGORY_LABELS, getCategoryLabel } from "@/types";
 import Tabs from "@/components/ui/Tabs";
 import OripaGrid from "@/components/oripa/OripaGrid";
-import OripaCard from "@/components/oripa/OripaCard";
+import RemainingBar from "@/components/oripa/RemainingBar";
+import { formatCoins } from "@/lib/utils/format";
 
 type SortKey = "recommended" | "newest" | "price-asc" | "price-desc";
 const DEFAULT_CATEGORY_ORDER = ["sneaker", "card", "figure", "game", "other"];
@@ -18,6 +19,77 @@ const sortOptions: { value: SortKey; label: string }[] = [
   { value: "price-asc", label: "安い順" },
   { value: "price-desc", label: "高い順" },
 ];
+
+function EventPackCard({
+  pack,
+  featured,
+}: {
+  pack: PackListItem;
+  featured: boolean;
+}) {
+  const isAlmostGone =
+    pack.totalStock > 0 && pack.remainingStock / pack.totalStock < 0.15;
+
+  return (
+    <Link
+      href={`/oripa/${pack.id}`}
+      className={`block group ${featured ? "col-span-2" : ""}`}
+    >
+      <div className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-gray-600 transition-colors">
+        <div
+          className={`relative bg-gray-800 ${
+            featured ? "aspect-[16/7]" : "aspect-[4/3]"
+          }`}
+        >
+          <Image
+            src={pack.image}
+            alt={pack.title}
+            fill
+            className="object-cover"
+            sizes={
+              featured
+                ? "(max-width: 768px) 100vw, 760px"
+                : "(max-width: 768px) 50vw, 360px"
+            }
+          />
+          {pack.featured && (
+            <span className="absolute top-2 left-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+              注目
+            </span>
+          )}
+          {isAlmostGone && (
+            <span className="absolute top-2 right-2 bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded animate-pulse">
+              残りわずか
+            </span>
+          )}
+          {pack.hasLastOnePrize && (
+            <span className="absolute bottom-2 left-2 bg-purple-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+              ラストワン賞
+            </span>
+          )}
+        </div>
+        <div className="p-3">
+          <h3
+            className={`font-bold text-white truncate group-hover:text-yellow-400 transition-colors ${
+              featured ? "text-base" : "text-sm"
+            }`}
+          >
+            {pack.title}
+          </h3>
+          <p className="text-yellow-400 font-bold text-sm mt-1">
+            🪙 {formatCoins(pack.pricePerDraw)} / 回
+          </p>
+          <div className="mt-2">
+            <RemainingBar
+              remaining={pack.remainingStock}
+              total={pack.totalStock}
+            />
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 export default function HomeClient({
   packs,
@@ -268,9 +340,13 @@ export default function HomeClient({
                 )}
 
                 {event.packs.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3">
-                    {event.packs.map((pack) => (
-                      <OripaCard key={pack.id} pack={pack} />
+                  <div className="grid grid-cols-2 gap-3">
+                    {event.packs.map((pack, index) => (
+                      <EventPackCard
+                        key={pack.id}
+                        pack={pack}
+                        featured={event.packs.length % 2 === 1 && index === 0}
+                      />
                     ))}
                   </div>
                 ) : (
