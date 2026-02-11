@@ -37,10 +37,19 @@ export default function PrizesPage() {
   const router = useRouter();
   const [prizes, setPrizes] = useState<Prize[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"table" | "grid">(() => {
+    if (typeof window === "undefined") return "table";
+    const stored = window.localStorage.getItem("admin-prizes-view-mode");
+    return stored === "table" || stored === "grid" ? stored : "table";
+  });
   const [search, setSearch] = useState("");
   const [rarity, setRarity] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    window.localStorage.setItem("admin-prizes-view-mode", viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     debounceRef.current = setTimeout(() => setDebouncedSearch(search), 300);
@@ -126,7 +135,7 @@ export default function PrizesPage() {
         </Link>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <div className="relative">
           <input
             type="text"
@@ -150,6 +159,24 @@ export default function PrizesPage() {
             </option>
           ))}
         </select>
+        <div className="ml-auto inline-flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={viewMode === "table" ? "gold" : "outline"}
+            onClick={() => setViewMode("table")}
+          >
+            リスト
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={viewMode === "grid" ? "gold" : "outline"}
+            onClick={() => setViewMode("grid")}
+          >
+            画像一覧
+          </Button>
+        </div>
       </div>
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
@@ -157,7 +184,7 @@ export default function PrizesPage() {
           <div className="px-4 py-8 text-center text-gray-500">
             読み込み中...
           </div>
-        ) : (
+        ) : viewMode === "table" ? (
           <DataTable
             columns={columns}
             data={prizes}
@@ -170,6 +197,57 @@ export default function PrizesPage() {
                 : "景品がまだありません。「新規作成」から景品を登録しましょう。"
             }
           />
+        ) : prizes.length === 0 ? (
+          <div className="px-4 py-8 text-center text-gray-500">
+            {search || rarity
+              ? "条件に一致する景品がありません"
+              : "景品がまだありません。「新規作成」から景品を登録しましょう。"}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
+            {prizes.map((prize) => (
+              <button
+                key={prize.id}
+                type="button"
+                onClick={() => router.push(`/admin/prizes/${prize.id}`)}
+                className="group text-left rounded-xl border border-gray-800 bg-gray-950/60 overflow-hidden hover:border-gold-mid/50 transition"
+              >
+                <div className="aspect-square bg-gray-800 overflow-hidden">
+                  {prize.image ? (
+                    <img
+                      src={prize.image}
+                      alt={prize.name}
+                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
+                    />
+                  ) : (
+                    <div className="w-full h-full grid place-items-center text-xs text-gray-500">
+                      画像なし
+                    </div>
+                  )}
+                </div>
+                <div className="p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-white line-clamp-2">
+                      {prize.name}
+                    </p>
+                    <Badge rarity={prize.rarity} />
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    ジャンル: {getCategoryLabel(prize.genre)}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
+                    <div>市場: {formatPrice(prize.marketPrice)}</div>
+                    <div>原価: {formatPrice(prize.costPrice)}</div>
+                    <div>価値: {formatCoins(prize.coinValue)}</div>
+                    <div>使用: {prize._count.packPrizes}</div>
+                  </div>
+                  <p className="text-[11px] text-gray-500">
+                    作成日: {formatDate(prize.createdAt)}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>

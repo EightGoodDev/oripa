@@ -121,6 +121,7 @@ export default function NewPrizePage() {
               setValue("image", url, { shouldDirty: true, shouldValidate: true })
             }
             folder="prizes"
+            recommendedSize="1200 x 1200px（1:1）"
             disabled={submitting}
           />
         </FormField>

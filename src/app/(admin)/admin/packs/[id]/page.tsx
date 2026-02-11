@@ -815,6 +815,7 @@ export default function EditPackPage({
               setValue("image", url, { shouldDirty: true, shouldValidate: true })
             }
             folder="packs"
+            recommendedSize="1200 x 1200px（1:1）"
             disabled={saving}
             inputClassName={inputClass}
           />

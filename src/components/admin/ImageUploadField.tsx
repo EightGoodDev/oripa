@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
-const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
+const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp,image/gif,image/avif";
 
 interface ImageUploadFieldProps {
   value: string;
@@ -12,6 +12,7 @@ interface ImageUploadFieldProps {
   disabled?: boolean;
   placeholder?: string;
   inputClassName?: string;
+  recommendedSize?: string;
 }
 
 export default function ImageUploadField({
@@ -21,6 +22,7 @@ export default function ImageUploadField({
   disabled = false,
   placeholder = "https://...",
   inputClassName = "w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gold-mid",
+  recommendedSize,
 }: ImageUploadFieldProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -84,7 +86,10 @@ export default function ImageUploadField({
         >
           {uploading ? "アップロード中..." : "画像をアップロード"}
         </button>
-        <span className="text-xs text-gray-400">PNG/JPEG/WEBP/GIF (5MBまで)</span>
+        <span className="text-xs text-gray-400">PNG/JPEG/WEBP/GIF/AVIF (5MBまで)</span>
+        {recommendedSize ? (
+          <span className="text-xs text-gray-400">推奨サイズ: {recommendedSize}</span>
+        ) : null}
       </div>
 
       <input

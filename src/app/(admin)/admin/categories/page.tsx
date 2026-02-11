@@ -26,6 +26,8 @@ export default function CategoriesPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<PackCategory | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const fetchCategories = useCallback(async () => {
     setLoading(true);
@@ -58,6 +60,21 @@ export default function CategoriesPage() {
 
       const next = [...prev];
       [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
+      return next;
+    });
+  };
+
+  const moveCategoryById = (dragId: string, targetId: string) => {
+    if (dragId === targetId) return;
+
+    setCategories((prev) => {
+      const fromIndex = prev.findIndex((category) => category.id === dragId);
+      const toIndex = prev.findIndex((category) => category.id === targetId);
+      if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return prev;
+
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
       return next;
     });
   };
@@ -183,51 +200,89 @@ export default function CategoriesPage() {
         </div>
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
         {loading ? (
-          <div className="px-4 py-10 text-center text-gray-500">読み込み中...</div>
+          <div className="py-10 text-center text-gray-500">読み込み中...</div>
         ) : categories.length === 0 ? (
-          <div className="px-4 py-10 text-center text-gray-500">
+          <div className="py-10 text-center text-gray-500">
             カテゴリがありません
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-800 text-left">
-                <th className="px-4 py-3 text-gray-400 font-medium">カテゴリ</th>
-                <th className="px-4 py-3 text-gray-400 font-medium">使用中パック数</th>
-                <th className="px-4 py-3 text-gray-400 font-medium">並び替え</th>
-                <th className="px-4 py-3 text-gray-400 font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {categories.map((category, index) => (
-                <tr key={category.id} className="border-b border-gray-800/50">
-                  <td className="px-4 py-3">{getCategoryLabel(category.name)}</td>
-                  <td className="px-4 py-3">{category.packCount}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        disabled={index === 0}
-                        onClick={() => moveCategory(index, -1)}
-                      >
-                        上へ
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        disabled={index === categories.length - 1}
-                        onClick={() => moveCategory(index, 1)}
-                      >
-                        下へ
-                      </Button>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
+          <div className="space-y-2">
+            <p className="text-xs text-gray-400">
+              バーをドラッグして並び替えできます（保存ボタンで反映）
+            </p>
+            {categories.map((category, index) => {
+              const isDragging = draggingId === category.id;
+              const isDragOver = dragOverId === category.id && draggingId !== category.id;
+
+              return (
+                <div
+                  key={category.id}
+                  draggable
+                  onDragStart={() => {
+                    setDraggingId(category.id);
+                    setDragOverId(category.id);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (dragOverId !== category.id) {
+                      setDragOverId(category.id);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (draggingId) {
+                      moveCategoryById(draggingId, category.id);
+                    }
+                    setDraggingId(null);
+                    setDragOverId(null);
+                  }}
+                  onDragEnd={() => {
+                    setDraggingId(null);
+                    setDragOverId(null);
+                  }}
+                  className={[
+                    "w-full rounded-xl border bg-gray-950/40 px-4 py-3 transition",
+                    "flex items-center gap-3",
+                    isDragging
+                      ? "border-gold-mid/70 opacity-70"
+                      : "border-gray-800",
+                    isDragOver ? "ring-2 ring-gold-mid/50" : "",
+                  ].join(" ")}
+                >
+                  <div className="text-lg text-gray-400 select-none cursor-grab active:cursor-grabbing">
+                    ⋮⋮
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-white">
+                      {getCategoryLabel(category.name)}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      使用中パック数: {category.packCount}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={index === 0}
+                      onClick={() => moveCategory(index, -1)}
+                    >
+                      上へ
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={index === categories.length - 1}
+                      onClick={() => moveCategory(index, 1)}
+                    >
+                      下へ
+                    </Button>
                     <Button
                       type="button"
                       size="sm"
@@ -237,11 +292,11 @@ export default function CategoriesPage() {
                     >
                       削除
                     </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 

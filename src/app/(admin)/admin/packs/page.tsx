@@ -11,6 +11,7 @@ import { getCategoryLabel } from "@/types";
 interface Pack {
   id: string;
   title: string;
+  image: string;
   category: string;
   pricePerDraw: number;
   totalStock: number;
@@ -39,10 +40,19 @@ export default function PacksPage() {
   const router = useRouter();
   const [packs, setPacks] = useState<Pack[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"table" | "grid">(() => {
+    if (typeof window === "undefined") return "table";
+    const stored = window.localStorage.getItem("admin-packs-view-mode");
+    return stored === "table" || stored === "grid" ? stored : "table";
+  });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    window.localStorage.setItem("admin-packs-view-mode", viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     debounceRef.current = setTimeout(() => setDebouncedSearch(search), 300);
@@ -116,7 +126,7 @@ export default function PacksPage() {
         </Link>
       </div>
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative">
           <input
             type="text"
@@ -140,19 +150,94 @@ export default function PacksPage() {
           <option value="ENDED">終了</option>
           <option value="SOLD_OUT">完売</option>
         </select>
+        <div className="ml-auto inline-flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={viewMode === "table" ? "gold" : "outline"}
+            onClick={() => setViewMode("table")}
+          >
+            リスト
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={viewMode === "grid" ? "gold" : "outline"}
+            onClick={() => setViewMode("grid")}
+          >
+            画像一覧
+          </Button>
+        </div>
       </div>
 
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-        <DataTable
-          columns={columns}
-          data={packs}
-          onRowClick={(row) => router.push(`/admin/packs/${row.id}`)}
-          emptyMessage={
-            search || statusFilter
+        {viewMode === "table" ? (
+          <DataTable
+            columns={columns}
+            data={packs}
+            onRowClick={(row) => router.push(`/admin/packs/${row.id}`)}
+            emptyMessage={
+              search || statusFilter
+                ? "条件に一致するパックがありません"
+                : "パックがまだありません。「新規作成」からパックを作成しましょう。"
+            }
+          />
+        ) : packs.length === 0 ? (
+          <div className="px-4 py-8 text-center text-gray-500">
+            {search || statusFilter
               ? "条件に一致するパックがありません"
-              : "パックがまだありません。「新規作成」からパックを作成しましょう。"
-          }
-        />
+              : "パックがまだありません。「新規作成」からパックを作成しましょう。"}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
+            {packs.map((pack) => (
+              <button
+                key={pack.id}
+                type="button"
+                onClick={() => router.push(`/admin/packs/${pack.id}`)}
+                className="group text-left rounded-xl border border-gray-800 bg-gray-950/60 overflow-hidden hover:border-gold-mid/50 transition"
+              >
+                <div className="aspect-[16/9] bg-gray-800 overflow-hidden">
+                  {pack.image ? (
+                    <img
+                      src={pack.image}
+                      alt={pack.title}
+                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
+                    />
+                  ) : (
+                    <div className="w-full h-full grid place-items-center text-xs text-gray-500">
+                      画像なし
+                    </div>
+                  )}
+                </div>
+                <div className="p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-white line-clamp-2">
+                      {pack.title}
+                    </p>
+                    <span
+                      className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium shrink-0 ${STATUS_STYLES[pack.status] || ""}`}
+                    >
+                      {STATUS_LABELS[pack.status] || pack.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    {getCategoryLabel(pack.category)}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
+                    <div>価格: {formatPrice(pack.pricePerDraw)}</div>
+                    <div>景品数: {pack._count.packPrizes}</div>
+                    <div>在庫: {pack.remainingStock}</div>
+                    <div>総数: {pack.totalStock}</div>
+                  </div>
+                  <p className="text-[11px] text-gray-500">
+                    作成日: {formatDate(pack.createdAt)}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

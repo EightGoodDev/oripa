@@ -130,6 +130,7 @@ export default function BannersPage() {
           value={form.imageUrl}
           onChange={(url) => setForm((prev) => ({ ...prev, imageUrl: url }))}
           folder="packs"
+          recommendedSize="1600 x 500px（16:5）"
           inputClassName={inputClass}
         />
         <input

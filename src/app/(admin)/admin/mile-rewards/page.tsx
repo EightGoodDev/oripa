@@ -150,6 +150,7 @@ export default function MileRewardsPage() {
           value={form.imageUrl}
           onChange={(url) => setForm((prev) => ({ ...prev, imageUrl: url }))}
           folder="prizes"
+          recommendedSize="1000 x 1000px（1:1）"
           inputClassName={inputClass}
         />
         <div className="grid grid-cols-2 gap-2">

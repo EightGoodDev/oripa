@@ -10,6 +10,7 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/jpeg",
   "image/webp",
   "image/gif",
+  "image/avif",
 ]);
 
 function getExtension(file: File): string {
@@ -20,6 +21,7 @@ function getExtension(file: File): string {
   if (file.type === "image/jpeg") return "jpg";
   if (file.type === "image/webp") return "webp";
   if (file.type === "image/gif") return "gif";
+  if (file.type === "image/avif") return "avif";
   return "bin";
 }
 

@@ -177,6 +177,7 @@ export default function EventsPage() {
           value={form.imageUrl}
           onChange={(url) => setForm((prev) => ({ ...prev, imageUrl: url }))}
           folder="packs"
+          recommendedSize="1600 x 600px（8:3）"
           inputClassName={inputClass}
         />
         <input
