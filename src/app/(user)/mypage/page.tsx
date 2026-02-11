@@ -399,25 +399,63 @@ export default function MyPage() {
             {!mileItems || mileItems.length === 0 ? (
               <p className="text-sm text-gray-500">交換可能なアイテムはありません</p>
             ) : (
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {mileItems.map((item) => (
-                  <div key={item.id} className="rounded-lg border border-gray-800 p-2 flex items-center gap-3">
-                    <div className="relative w-14 h-14 rounded overflow-hidden bg-gray-800 shrink-0">
-                      <Image src={item.imageUrl} alt={item.name} fill className="object-cover" sizes="56px" />
+                  <div key={item.id} className="rounded-xl border border-gray-800 overflow-hidden bg-gray-950/60">
+                    <div className="relative aspect-[4/3] bg-gray-900">
+                      <Image
+                        src={item.imageUrl}
+                        alt={item.name}
+                        fill
+                        className={`object-cover ${item.stock !== null && item.stock <= 0 ? "brightness-[0.35] grayscale" : ""}`}
+                        sizes="(max-width: 768px) 100vw, 360px"
+                      />
+                      {item.stock !== null && item.stock <= 0 && (
+                        <div className="absolute inset-0 pointer-events-none">
+                          <div className="absolute inset-0 bg-black/35" />
+                          <div className="absolute -left-12 top-4 w-48 -rotate-12 bg-red-600 text-center text-[11px] font-extrabold tracking-[0.18em] text-white py-1.5 shadow-lg">
+                            SOLD OUT
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white truncate">{item.name}</p>
-                      <p className="text-xs text-gray-500 truncate">{item.description}</p>
-                      <p className="text-xs text-green-400 mt-0.5">{formatCoins(item.requiredMiles)}マイル</p>
+                    <div className="p-3 space-y-2">
+                      <div className="min-w-0">
+                        <p className="text-sm text-white font-semibold truncate">{item.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{item.description}</p>
+                        <p className="text-xs text-green-400 mt-1">{formatCoins(item.requiredMiles)}マイル</p>
+                        <p
+                          className={`text-[11px] mt-1 ${
+                            item.stock !== null && item.stock <= 0 ? "text-red-400" : "text-gray-500"
+                          }`}
+                        >
+                          {item.stock === null ? "在庫: 無制限" : `在庫: ${item.stock}`}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={
+                          item.stock !== null && item.stock <= 0
+                            ? "outline"
+                            : item.canExchange
+                              ? "gold"
+                              : "outline"
+                        }
+                        disabled={
+                          item.stock !== null && item.stock <= 0
+                            ? true
+                            : !item.canExchange || exchangeMileMutation.isPending
+                        }
+                        onClick={() => exchangeMileMutation.mutate(item.id)}
+                        className="w-full"
+                      >
+                        {item.stock !== null && item.stock <= 0
+                          ? "SOLD OUT"
+                          : item.canExchange
+                            ? "交換"
+                            : "マイル不足"}
+                      </Button>
                     </div>
-                    <Button
-                      size="sm"
-                      variant={item.canExchange ? "gold" : "outline"}
-                      disabled={!item.canExchange || exchangeMileMutation.isPending}
-                      onClick={() => exchangeMileMutation.mutate(item.id)}
-                    >
-                      交換
-                    </Button>
                   </div>
                 ))}
               </div>

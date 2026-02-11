@@ -17,7 +17,6 @@ export async function GET() {
         tenantId,
         isActive: true,
         isPublished: true,
-        OR: [{ stock: null }, { stock: { gt: 0 } }],
       },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     }),
@@ -32,7 +31,9 @@ export async function GET() {
   return NextResponse.json(
     items.map((item) => ({
       ...item,
-      canExchange: miles >= item.requiredMiles,
+      canExchange:
+        miles >= item.requiredMiles &&
+        (item.stock === null || item.stock > 0),
     })),
   );
 }
