@@ -15,9 +15,12 @@ const navItems = [
 export default function Header() {
   const { data: session } = useSession();
   const pathname = usePathname();
+  const operatorName = process.env.NEXT_PUBLIC_OPERATOR_NAME ?? "ORIPA運営事務局";
+  const supportEmail =
+    process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@oripa.example";
 
   return (
-    <header className="sticky top-0 z-50 bg-gray-900 border-b border-gray-800">
+    <header className="sticky top-0 z-50 border-b border-gray-800 bg-gray-900/95 backdrop-blur supports-[backdrop-filter]:bg-gray-900/85">
       <div className="max-w-md lg:max-w-4xl mx-auto flex items-center justify-between px-4 h-14">
         <div className="flex items-center gap-8">
           <Link href="/" className="text-xl font-bold text-white tracking-tight">
@@ -69,6 +72,29 @@ export default function Header() {
             ログイン
           </Link>
         )}
+      </div>
+
+      <div className="border-t border-gray-800 bg-gray-950/80">
+        <div className="max-w-md lg:max-w-4xl mx-auto h-8 px-4 flex items-center justify-between gap-3 text-[11px]">
+          <p className="text-gray-500 truncate">運営: {operatorName}</p>
+          <div className="flex items-center gap-3 shrink-0">
+            <Link href="/operator" className="text-gray-400 hover:text-white">
+              運営者情報
+            </Link>
+            <Link href="/terms" className="text-gray-400 hover:text-white">
+              利用規約
+            </Link>
+            <Link href="/privacy" className="text-gray-400 hover:text-white">
+              プライバシー
+            </Link>
+            <a
+              href={`mailto:${supportEmail}`}
+              className="text-gray-400 hover:text-white"
+            >
+              問い合わせ
+            </a>
+          </div>
+        </div>
       </div>
     </header>
   );
