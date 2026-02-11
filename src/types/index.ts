@@ -116,11 +116,11 @@ export interface RankingEntry {
   id: string;
   userName: string;
   userImage: string | null;
-  prizeName: string;
-  prizeImage: string;
-  prizeRarity: Rarity;
-  oripaTitle: string;
-  drawnAt: string;
+  highRarityWinCount: number;
+  latestPrizeName: string;
+  latestPrizeRarity: Rarity;
+  latestOripaTitle: string;
+  lastWonAt: string;
 }
 
 export interface HomeBannerItem {

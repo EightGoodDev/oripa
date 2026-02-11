@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { getRecentWinners } from "@/lib/db/queries";
 import Badge from "@/components/ui/Badge";
 import { formatRelativeTime } from "@/lib/utils/format";
@@ -36,28 +35,28 @@ export default async function RankingPage() {
                 )}
               </div>
 
-              <div className="relative w-12 h-12 shrink-0 rounded bg-gray-800 overflow-hidden">
-                <Image
-                  src={entry.prizeImage}
-                  alt={entry.prizeName}
-                  fill
-                  className="object-cover"
-                  sizes="48px"
-                />
+              <div className="w-10 h-10 shrink-0 rounded-full bg-gray-800 grid place-items-center text-sm font-bold text-gray-300">
+                {(entry.userName ?? "匿").slice(0, 1)}
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <Badge rarity={entry.prizeRarity} />
-                  <span className="text-xs text-gray-500 truncate">
-                    {entry.oripaTitle}
-                  </span>
-                </div>
-                <p className="text-sm text-white font-medium truncate mt-0.5">
-                  {entry.prizeName}
+                <p className="text-sm text-white font-semibold truncate">
+                  {entry.userName}
                 </p>
-                <p className="text-xs text-gray-500">
-                  {entry.userName} ・ {formatRelativeTime(entry.drawnAt)}
+                <p className="text-xs text-gray-400 mt-0.5">
+                  高レア当選 {entry.highRarityWinCount} 回
+                </p>
+                <p className="text-xs text-gray-500 mt-1 truncate">
+                  最終当選: {entry.latestPrizeName}（{entry.latestOripaTitle}）
+                </p>
+              </div>
+
+              <div className="shrink-0 text-right">
+                <div className="flex justify-end">
+                  <Badge rarity={entry.latestPrizeRarity} />
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  {formatRelativeTime(entry.lastWonAt)}
                 </p>
               </div>
             </div>

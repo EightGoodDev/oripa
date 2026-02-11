@@ -10,6 +10,11 @@ import type {
   HomeEventItem,
 } from "@/types";
 
+function toHighRarity(rarity: "N" | "R" | "SR" | "SSR" | "UR"): "SR" | "SSR" | "UR" {
+  if (rarity === "SR" || rarity === "SSR" || rarity === "UR") return rarity;
+  return "SR";
+}
+
 function canViewRankLimitedContent(userRank: UserRank, minRank: UserRank) {
   return getRankIndex(userRank) >= getRankIndex(minRank);
 }
@@ -255,26 +260,67 @@ export async function getRecentWinners(limit = 30): Promise<RankingEntry[]> {
       },
     },
     orderBy: { createdAt: "desc" },
-    take: limit,
+    take: Math.max(limit * 20, 200),
     include: {
       user: { select: { name: true, image: true } },
       prize: {
-        select: { name: true, image: true, rarity: true },
+        select: { name: true, rarity: true },
       },
       pack: { select: { title: true } },
     },
   });
 
-  return draws.map((d) => ({
-    id: d.id,
-    userName: d.user?.name ?? "匿名",
-    userImage: d.user?.image ?? null,
-    prizeName: d.prize.name,
-    prizeImage: d.prize.image,
-    prizeRarity: d.prize.rarity,
-    oripaTitle: d.pack.title,
-    drawnAt: d.createdAt.toISOString(),
-  }));
+  const byUser = new Map<
+    string,
+    {
+      userName: string;
+      userImage: string | null;
+      highRarityWinCount: number;
+      latestPrizeName: string;
+      latestPrizeRarity: "SR" | "SSR" | "UR";
+      latestOripaTitle: string;
+      lastWonAt: Date;
+    }
+  >();
+
+  for (const draw of draws) {
+    const userId = draw.userId ?? `anonymous:${draw.id}`;
+    const existing = byUser.get(userId);
+
+    if (!existing) {
+      byUser.set(userId, {
+        userName: draw.user?.name ?? "匿名",
+        userImage: draw.user?.image ?? null,
+        highRarityWinCount: 1,
+        latestPrizeName: draw.prize.name,
+        latestPrizeRarity: toHighRarity(draw.prize.rarity),
+        latestOripaTitle: draw.pack.title,
+        lastWonAt: draw.createdAt,
+      });
+      continue;
+    }
+
+    existing.highRarityWinCount += 1;
+  }
+
+  return Array.from(byUser.entries())
+    .sort((a, b) => {
+      if (b[1].highRarityWinCount !== a[1].highRarityWinCount) {
+        return b[1].highRarityWinCount - a[1].highRarityWinCount;
+      }
+      return b[1].lastWonAt.getTime() - a[1].lastWonAt.getTime();
+    })
+    .slice(0, limit)
+    .map(([id, row]) => ({
+      id,
+      userName: row.userName,
+      userImage: row.userImage,
+      highRarityWinCount: row.highRarityWinCount,
+      latestPrizeName: row.latestPrizeName,
+      latestPrizeRarity: row.latestPrizeRarity,
+      latestOripaTitle: row.latestOripaTitle,
+      lastWonAt: row.lastWonAt.toISOString(),
+    }));
 }
 
 export async function getChargePlans(userId?: string) {
