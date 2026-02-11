@@ -135,7 +135,11 @@ export interface HomeEventItem {
   title: string;
   subtitle: string | null;
   description: string;
-  imageUrl: string;
+  displayType: "IMAGE" | "TEXT_FRAME";
+  imageUrl: string | null;
   linkUrl: string | null;
+  backgroundColor: string | null;
+  borderColor: string | null;
+  textColor: string | null;
   packs: PackListItem[];
 }

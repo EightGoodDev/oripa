@@ -1,4 +1,4 @@
-import type { ConfigDomain } from "@prisma/client";
+import type { ConfigDomain, HomeEventDisplayType } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
 async function buildSnapshot(tenantId: string, domain: ConfigDomain) {
@@ -42,6 +42,10 @@ function parseDate(input: unknown): Date | null {
   if (input instanceof Date) return input;
   const d = new Date(String(input));
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function parseEventDisplayType(input: unknown): HomeEventDisplayType {
+  return input === "TEXT_FRAME" ? "TEXT_FRAME" : "IMAGE";
 }
 
 export async function publishConfigVersion(params: {
@@ -153,8 +157,12 @@ export async function rollbackConfigVersion(params: {
             title: String(row.title ?? ""),
             subtitle: row.subtitle ? String(row.subtitle) : null,
             description: String(row.description ?? ""),
-            imageUrl: String(row.imageUrl ?? ""),
+            displayType: parseEventDisplayType(row.displayType),
+            imageUrl: row.imageUrl ? String(row.imageUrl) : null,
             linkUrl: row.linkUrl ? String(row.linkUrl) : null,
+            backgroundColor: row.backgroundColor ? String(row.backgroundColor) : null,
+            borderColor: row.borderColor ? String(row.borderColor) : null,
+            textColor: row.textColor ? String(row.textColor) : null,
             startsAt: parseDate(row.startsAt),
             endsAt: parseDate(row.endsAt),
             newUserOnly: Boolean(row.newUserOnly ?? false),

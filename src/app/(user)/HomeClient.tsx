@@ -180,22 +180,63 @@ export default function HomeClient({
           {events.map((event) => {
             const firstPack = event.packs[0];
             const href = event.linkUrl || (firstPack ? `/oripa/${firstPack.id}` : null);
+            const backgroundColor = event.backgroundColor || "#4b1d1d";
+            const borderColor = event.borderColor || "#f59e0b";
+            const textColor = event.textColor || "#fff7ed";
+            const hasImage = Boolean(event.imageUrl);
+            const isImageType = event.displayType === "IMAGE";
 
             const hero = (
-              <div className="relative rounded-lg overflow-hidden border border-yellow-400/30 aspect-[16/6]">
-                <Image
-                  src={event.imageUrl}
-                  alt={event.title}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 768px) 100vw, 760px"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/20" />
+              <div
+                className="relative rounded-lg overflow-hidden border aspect-[16/6]"
+                style={{
+                  borderColor,
+                  backgroundColor,
+                }}
+              >
+                {isImageType && hasImage && (
+                  <>
+                    <Image
+                      src={event.imageUrl!}
+                      alt={event.title}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 760px"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/20" />
+                  </>
+                )}
+
+                {!isImageType && hasImage && (
+                  <>
+                    <Image
+                      src={event.imageUrl!}
+                      alt={event.title}
+                      fill
+                      className="object-cover opacity-20"
+                      sizes="(max-width: 768px) 100vw, 760px"
+                    />
+                    <div className="absolute inset-0 bg-black/30" />
+                  </>
+                )}
+
                 <div className="absolute inset-0 p-3 flex flex-col justify-center">
-                  <p className="text-[11px] text-yellow-300 font-bold">EVENT</p>
-                  <h2 className="text-sm md:text-base font-bold text-white mt-1">{event.title}</h2>
+                  <p
+                    className="text-[11px] font-bold tracking-wide opacity-90"
+                    style={{ color: textColor }}
+                  >
+                    {event.displayType === "TEXT_FRAME" ? "EVENT FRAME" : "EVENT"}
+                  </p>
+                  <h2
+                    className="text-sm md:text-base font-bold mt-1"
+                    style={{ color: textColor }}
+                  >
+                    {event.title}
+                  </h2>
                   {event.subtitle && (
-                    <p className="text-xs text-yellow-100 mt-0.5">{event.subtitle}</p>
+                    <p className="text-xs mt-0.5 opacity-90" style={{ color: textColor }}>
+                      {event.subtitle}
+                    </p>
                   )}
                 </div>
               </div>
@@ -204,7 +245,14 @@ export default function HomeClient({
             return (
               <div
                 key={event.id}
-                className="rounded-xl border border-yellow-700/40 bg-gradient-to-r from-yellow-500/20 via-orange-500/15 to-red-500/20 p-3"
+                className="rounded-xl border p-3"
+                style={{
+                  borderColor,
+                  background:
+                    event.displayType === "TEXT_FRAME"
+                      ? backgroundColor
+                      : "linear-gradient(to right, rgba(234,179,8,.2), rgba(249,115,22,.15), rgba(239,68,68,.2))",
+                }}
               >
                 {href ? <Link href={href}>{hero}</Link> : hero}
 

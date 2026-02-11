@@ -89,6 +89,11 @@ enum ConfigDomain {
   CONTENT_OVERRIDES
 }
 
+enum HomeEventDisplayType {
+  IMAGE
+  TEXT_FRAME
+}
+
 // ─── Tenant ───────────────────────────────────────────
 
 model Tenant {
@@ -584,21 +589,25 @@ model HomeBanner {
 }
 
 model HomeEvent {
-  id          String    @id @default(cuid())
-  tenantId    String    @default("default")
-  title       String
-  subtitle    String?
-  description String    @default("")
-  imageUrl    String
-  linkUrl     String?
-  startsAt    DateTime?
-  endsAt      DateTime?
-  newUserOnly Boolean   @default(false)
-  sortOrder   Int       @default(0)
-  isActive    Boolean   @default(true)
-  isPublished Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String               @id @default(cuid())
+  tenantId        String               @default("default")
+  title           String
+  subtitle        String?
+  description     String               @default("")
+  displayType     HomeEventDisplayType @default(IMAGE)
+  imageUrl        String?
+  linkUrl         String?
+  backgroundColor String?
+  borderColor     String?
+  textColor       String?
+  startsAt        DateTime?
+  endsAt          DateTime?
+  newUserOnly     Boolean              @default(false)
+  sortOrder       Int                  @default(0)
+  isActive        Boolean              @default(true)
+  isPublished     Boolean              @default(false)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   packs HomeEventPack[]
 

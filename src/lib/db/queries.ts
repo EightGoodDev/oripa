@@ -154,8 +154,12 @@ export async function getHomePageData(options?: {
         title: event.title,
         subtitle: event.subtitle,
         description: event.description,
+        displayType: event.displayType,
         imageUrl: event.imageUrl,
         linkUrl: event.linkUrl,
+        backgroundColor: event.backgroundColor,
+        borderColor: event.borderColor,
+        textColor: event.textColor,
         packs: eventPacks,
       } satisfies HomeEventItem;
     })
