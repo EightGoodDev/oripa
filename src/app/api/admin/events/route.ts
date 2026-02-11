@@ -4,12 +4,36 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { prisma } from "@/lib/db/prisma";
 import { resolveTenantId } from "@/lib/tenant/context";
 
+function isAllowedLinkUrl(value: string) {
+  if (value.startsWith("/")) {
+    return !value.startsWith("//");
+  }
+
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+const optionalLinkUrlSchema = z
+  .string()
+  .trim()
+  .max(2048)
+  .optional()
+  .nullable()
+  .or(z.literal(""))
+  .refine((value) => !value || isAllowedLinkUrl(value), {
+    message: "リンクURLは https://... または /path 形式で入力してください",
+  });
+
 const eventSchema = z.object({
   title: z.string().min(1).max(120),
   subtitle: z.string().max(120).optional().nullable(),
   description: z.string().max(500).optional().default(""),
   imageUrl: z.string().url(),
-  linkUrl: z.string().url().optional().nullable().or(z.literal("")),
+  linkUrl: optionalLinkUrlSchema,
   startsAt: z.string().optional().nullable().or(z.literal("")),
   endsAt: z.string().optional().nullable().or(z.literal("")),
   newUserOnly: z.boolean().default(false),
@@ -67,6 +91,28 @@ export async function POST(req: NextRequest) {
 
   const tenantId = await resolveTenantId();
   const row = parsed.data;
+  const requestedPackIds = Array.from(new Set(row.packIds));
+  const validPacks =
+    requestedPackIds.length > 0
+      ? await prisma.oripaPack.findMany({
+          where: {
+            tenantId,
+            id: { in: requestedPackIds },
+          },
+          select: { id: true },
+        })
+      : [];
+  const validPackIdSet = new Set(validPacks.map((pack) => pack.id));
+  const orderedPackIds = requestedPackIds.filter((packId) =>
+    validPackIdSet.has(packId),
+  );
+
+  if (!row.linkUrl && orderedPackIds.length === 0) {
+    return NextResponse.json(
+      { error: "対象パックまたはリンクURLのいずれかを指定してください" },
+      { status: 400 },
+    );
+  }
 
   const event = await prisma.$transaction(async (tx) => {
     const created = await tx.homeEvent.create({
@@ -86,20 +132,12 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (row.packIds.length > 0) {
-      const packs = await tx.oripaPack.findMany({
-        where: {
-          tenantId,
-          id: { in: row.packIds },
-        },
-        select: { id: true },
-      });
-
+    if (orderedPackIds.length > 0) {
       await tx.homeEventPack.createMany({
-        data: packs.map((pack, index) => ({
+        data: orderedPackIds.map((packId, index) => ({
           tenantId,
           homeEventId: created.id,
-          packId: pack.id,
+          packId,
           sortOrder: index,
         })),
       });

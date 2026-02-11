@@ -179,32 +179,34 @@ export default function HomeClient({
         <section className="px-4 space-y-3">
           {events.map((event) => {
             const firstPack = event.packs[0];
-            const href = event.linkUrl ?? (firstPack ? `/oripa/${firstPack.id}` : "/");
+            const href = event.linkUrl || (firstPack ? `/oripa/${firstPack.id}` : null);
+
+            const hero = (
+              <div className="relative rounded-lg overflow-hidden border border-yellow-400/30 aspect-[16/6]">
+                <Image
+                  src={event.imageUrl}
+                  alt={event.title}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 760px"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/20" />
+                <div className="absolute inset-0 p-3 flex flex-col justify-center">
+                  <p className="text-[11px] text-yellow-300 font-bold">EVENT</p>
+                  <h2 className="text-sm md:text-base font-bold text-white mt-1">{event.title}</h2>
+                  {event.subtitle && (
+                    <p className="text-xs text-yellow-100 mt-0.5">{event.subtitle}</p>
+                  )}
+                </div>
+              </div>
+            );
 
             return (
               <div
                 key={event.id}
                 className="rounded-xl border border-yellow-700/40 bg-gradient-to-r from-yellow-500/20 via-orange-500/15 to-red-500/20 p-3"
               >
-                <Link href={href} className="block">
-                  <div className="relative rounded-lg overflow-hidden border border-yellow-400/30 aspect-[16/6]">
-                    <Image
-                      src={event.imageUrl}
-                      alt={event.title}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, 760px"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/20" />
-                    <div className="absolute inset-0 p-3 flex flex-col justify-center">
-                      <p className="text-[11px] text-yellow-300 font-bold">EVENT</p>
-                      <h2 className="text-sm md:text-base font-bold text-white mt-1">{event.title}</h2>
-                      {event.subtitle && (
-                        <p className="text-xs text-yellow-100 mt-0.5">{event.subtitle}</p>
-                      )}
-                    </div>
-                  </div>
-                </Link>
+                {href ? <Link href={href}>{hero}</Link> : hero}
 
                 <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
                   {event.packs.map((pack) => (

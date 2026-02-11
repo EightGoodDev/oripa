@@ -159,7 +159,7 @@ export async function getHomePageData(options?: {
         packs: eventPacks,
       } satisfies HomeEventItem;
     })
-    .filter((event) => event.packs.length > 0);
+    .filter((event) => event.packs.length > 0 || Boolean(event.linkUrl));
 
   return {
     packs,

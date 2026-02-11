@@ -80,6 +80,11 @@ export default function EventsPage() {
       toast.error("タイトルと画像は必須です");
       return;
     }
+    const normalizedLinkUrl = form.linkUrl.trim();
+    if (selectedPackIds.length === 0 && !normalizedLinkUrl) {
+      toast.error("対象パックかリンクURLのいずれかを設定してください");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -88,6 +93,7 @@ export default function EventsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          linkUrl: normalizedLinkUrl,
           packIds: selectedPackIds,
         }),
       });
@@ -183,7 +189,7 @@ export default function EventsPage() {
         <input
           value={form.linkUrl}
           onChange={(e) => setForm((prev) => ({ ...prev, linkUrl: e.target.value }))}
-          placeholder="リンクURL（任意）"
+          placeholder="リンクURL（任意: https://... または /path）"
           className={inputClass}
         />
 
@@ -247,6 +253,7 @@ export default function EventsPage() {
               <div key={row.id} className="p-3 space-y-2">
                 <div className="text-sm font-medium">{row.title}</div>
                 <p className="text-xs text-gray-400">対象: {row.packs.map((x) => x.pack.title).join(" / ") || "なし"}</p>
+                <p className="text-xs text-gray-500">リンク: {row.linkUrl || "未設定"}</p>
                 <div className="flex gap-2">
                   <Button size="sm" variant={row.isActive ? "gold" : "outline"} onClick={() => toggleField(row, "isActive")}>有効: {row.isActive ? "ON" : "OFF"}</Button>
                   <Button size="sm" variant={row.isPublished ? "gold" : "outline"} onClick={() => toggleField(row, "isPublished")}>公開: {row.isPublished ? "ON" : "OFF"}</Button>
