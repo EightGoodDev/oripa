@@ -12,11 +12,28 @@ interface PackCategory {
   name: string;
   sortOrder: number;
   packCount: number;
+  tabBackgroundColor: string | null;
+  tabTextColor: string | null;
   createdAt: string;
 }
 
 const inputClass =
   "w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gold-mid";
+const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const DEFAULT_TAB_BG = "#facc15";
+const DEFAULT_TAB_TEXT = "#111827";
+
+function normalizeColorForPicker(value: string | null, fallback: string) {
+  const raw = value?.trim() ?? "";
+  if (!HEX_COLOR_PATTERN.test(raw)) return fallback;
+  if (raw.length === 4) {
+    const r = raw[1];
+    const g = raw[2];
+    const b = raw[3];
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+  return raw.toLowerCase();
+}
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<PackCategory[]>([]);
@@ -24,6 +41,7 @@ export default function CategoriesPage() {
   const [savingOrder, setSavingOrder] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [updatingStyleId, setUpdatingStyleId] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<PackCategory | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -164,6 +182,36 @@ export default function CategoriesPage() {
     }
   };
 
+  const handleSaveCategoryStyle = async (category: PackCategory) => {
+    setUpdatingStyleId(category.id);
+    try {
+      const res = await fetch(`/api/admin/packs/categories/${category.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tabBackgroundColor: category.tabBackgroundColor ?? "",
+          tabTextColor: category.tabTextColor ?? "",
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        toast.error(
+          body?.error?.tabBackgroundColor?.[0] ??
+            body?.error?.tabTextColor?.[0] ??
+            body?.error ??
+            "タブ配色の保存に失敗しました",
+        );
+        return;
+      }
+      await fetchCategories();
+      toast.success("タブ配色を保存しました");
+    } catch {
+      toast.error("タブ配色の保存に失敗しました");
+    } finally {
+      setUpdatingStyleId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: "カテゴリ管理" }]} />
@@ -262,9 +310,117 @@ export default function CategoriesPage() {
                     <p className="text-xs text-gray-400">
                       使用中パック数: {category.packCount}
                     </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span
+                        className="inline-flex px-2 py-1 rounded-full text-xs font-bold"
+                        style={{
+                          backgroundColor: normalizeColorForPicker(
+                            category.tabBackgroundColor,
+                            DEFAULT_TAB_BG,
+                          ),
+                          color: normalizeColorForPicker(
+                            category.tabTextColor,
+                            DEFAULT_TAB_TEXT,
+                          ),
+                        }}
+                      >
+                        {getCategoryLabel(category.name)}
+                      </span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <label className="text-xs text-gray-400 flex items-center gap-2">
+                        背景
+                        <input
+                          type="color"
+                          value={normalizeColorForPicker(
+                            category.tabBackgroundColor,
+                            DEFAULT_TAB_BG,
+                          )}
+                          onChange={(e) =>
+                            setCategories((prev) =>
+                              prev.map((row) =>
+                                row.id === category.id
+                                  ? {
+                                      ...row,
+                                      tabBackgroundColor: e.target.value,
+                                    }
+                                  : row,
+                              ),
+                            )
+                          }
+                          className="w-8 h-8 rounded border border-gray-700 bg-gray-900"
+                        />
+                        <input
+                          value={category.tabBackgroundColor ?? ""}
+                          onChange={(e) =>
+                            setCategories((prev) =>
+                              prev.map((row) =>
+                                row.id === category.id
+                                  ? {
+                                      ...row,
+                                      tabBackgroundColor: e.target.value,
+                                    }
+                                  : row,
+                              ),
+                            )
+                          }
+                          placeholder="#RRGGBB"
+                          className={inputClass}
+                        />
+                      </label>
+                      <label className="text-xs text-gray-400 flex items-center gap-2">
+                        文字
+                        <input
+                          type="color"
+                          value={normalizeColorForPicker(
+                            category.tabTextColor,
+                            DEFAULT_TAB_TEXT,
+                          )}
+                          onChange={(e) =>
+                            setCategories((prev) =>
+                              prev.map((row) =>
+                                row.id === category.id
+                                  ? {
+                                      ...row,
+                                      tabTextColor: e.target.value,
+                                    }
+                                  : row,
+                              ),
+                            )
+                          }
+                          className="w-8 h-8 rounded border border-gray-700 bg-gray-900"
+                        />
+                        <input
+                          value={category.tabTextColor ?? ""}
+                          onChange={(e) =>
+                            setCategories((prev) =>
+                              prev.map((row) =>
+                                row.id === category.id
+                                  ? {
+                                      ...row,
+                                      tabTextColor: e.target.value,
+                                    }
+                                  : row,
+                              ),
+                            )
+                          }
+                          placeholder="#RRGGBB"
+                          className={inputClass}
+                        />
+                      </label>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={updatingStyleId === category.id}
+                      onClick={() => handleSaveCategoryStyle(category)}
+                    >
+                      {updatingStyleId === category.id ? "保存中..." : "配色保存"}
+                    </Button>
                     <Button
                       type="button"
                       size="sm"

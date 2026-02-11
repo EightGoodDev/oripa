@@ -5,6 +5,8 @@ import { resolveTenantId } from "@/lib/tenant/context";
 import { z } from "zod";
 
 const DEFAULT_CATEGORIES = ["sneaker", "card", "figure", "game", "other"];
+const TAB_BG_KEY_PREFIX = "pack-category-tab-bg:";
+const TAB_TEXT_KEY_PREFIX = "pack-category-tab-text:";
 
 const createCategorySchema = z.object({
   name: z
@@ -70,6 +72,39 @@ export async function GET() {
     },
   });
 
+  const styleOverrides = await prisma.tenantContentOverride.findMany({
+    where: {
+      tenantId,
+      isPublished: true,
+      OR: [
+        { key: { startsWith: TAB_BG_KEY_PREFIX } },
+        { key: { startsWith: TAB_TEXT_KEY_PREFIX } },
+      ],
+    },
+    select: {
+      key: true,
+      value: true,
+    },
+  });
+
+  const tabBackgroundColorMap = new Map<string, string>();
+  const tabTextColorMap = new Map<string, string>();
+  for (const row of styleOverrides) {
+    if (row.key.startsWith(TAB_BG_KEY_PREFIX)) {
+      tabBackgroundColorMap.set(
+        row.key.slice(TAB_BG_KEY_PREFIX.length),
+        row.value,
+      );
+      continue;
+    }
+    if (row.key.startsWith(TAB_TEXT_KEY_PREFIX)) {
+      tabTextColorMap.set(
+        row.key.slice(TAB_TEXT_KEY_PREFIX.length),
+        row.value,
+      );
+    }
+  }
+
   const usage = await prisma.oripaPack.groupBy({
     where: { tenantId },
     by: ["category"],
@@ -81,6 +116,8 @@ export async function GET() {
     categories.map((category) => ({
       ...category,
       packCount: usageMap.get(category.name) ?? 0,
+      tabBackgroundColor: tabBackgroundColorMap.get(category.name) ?? null,
+      tabTextColor: tabTextColorMap.get(category.name) ?? null,
     })),
   );
 }

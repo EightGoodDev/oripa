@@ -8,10 +8,17 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const session = await auth();
-  const { packs, banners, events } = await getHomePageData({
+  const { packs, banners, events, categoryTabStyles } = await getHomePageData({
     userId: session?.user?.id,
     userRank: (session?.user?.rank as UserRank | undefined) ?? "BEGINNER",
   });
 
-  return <HomeClient packs={packs} banners={banners} events={events} />;
+  return (
+    <HomeClient
+      packs={packs}
+      banners={banners}
+      events={events}
+      categoryTabStyles={categoryTabStyles}
+    />
+  );
 }

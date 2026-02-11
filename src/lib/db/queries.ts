@@ -10,6 +10,9 @@ import type {
   HomeEventItem,
 } from "@/types";
 
+const TAB_BG_KEY_PREFIX = "pack-category-tab-bg:";
+const TAB_TEXT_KEY_PREFIX = "pack-category-tab-text:";
+
 function toHighRarity(rarity: "N" | "R" | "SR" | "SSR" | "UR"): "SR" | "SSR" | "UR" {
   if (rarity === "SR" || rarity === "SSR" || rarity === "UR") return rarity;
   return "SR";
@@ -76,7 +79,15 @@ export async function getActivePacks(
 export async function getHomePageData(options?: {
   userId?: string;
   userRank?: UserRank;
-}): Promise<{ packs: PackListItem[]; banners: HomeBannerItem[]; events: HomeEventItem[] }> {
+}): Promise<{
+  packs: PackListItem[];
+  banners: HomeBannerItem[];
+  events: HomeEventItem[];
+  categoryTabStyles: Record<
+    string,
+    { backgroundColor: string | null; textColor: string | null }
+  >;
+}> {
   const tenantId = await resolveTenantId();
   const userRank = options?.userRank ?? "BEGINNER";
 
@@ -91,7 +102,7 @@ export async function getHomePageData(options?: {
       : Promise.resolve(null),
   ]);
 
-  const [bannersResult, eventsResult] = await Promise.allSettled([
+  const [bannersResult, eventsResult, tabStylesResult] = await Promise.allSettled([
     prisma.homeBanner.findMany({
       where: {
         tenantId,
@@ -141,6 +152,20 @@ export async function getHomePageData(options?: {
         },
       },
     }),
+    prisma.tenantContentOverride.findMany({
+      where: {
+        tenantId,
+        isPublished: true,
+        OR: [
+          { key: { startsWith: TAB_BG_KEY_PREFIX } },
+          { key: { startsWith: TAB_TEXT_KEY_PREFIX } },
+        ],
+      },
+      select: {
+        key: true,
+        value: true,
+      },
+    }),
   ]);
 
   if (bannersResult.status === "rejected") {
@@ -149,9 +174,35 @@ export async function getHomePageData(options?: {
   if (eventsResult.status === "rejected") {
     console.error("Failed to load home events", eventsResult.reason);
   }
+  if (tabStylesResult.status === "rejected") {
+    console.error("Failed to load category tab styles", tabStylesResult.reason);
+  }
 
   const bannersRaw = bannersResult.status === "fulfilled" ? bannersResult.value : [];
   const eventsRaw = eventsResult.status === "fulfilled" ? eventsResult.value : [];
+  const tabStylesRaw = tabStylesResult.status === "fulfilled" ? tabStylesResult.value : [];
+
+  const categoryTabStyles: Record<
+    string,
+    { backgroundColor: string | null; textColor: string | null }
+  > = {};
+  for (const row of tabStylesRaw) {
+    if (row.key.startsWith(TAB_BG_KEY_PREFIX)) {
+      const key = row.key.slice(TAB_BG_KEY_PREFIX.length);
+      categoryTabStyles[key] = {
+        backgroundColor: row.value,
+        textColor: categoryTabStyles[key]?.textColor ?? null,
+      };
+      continue;
+    }
+    if (row.key.startsWith(TAB_TEXT_KEY_PREFIX)) {
+      const key = row.key.slice(TAB_TEXT_KEY_PREFIX.length);
+      categoryTabStyles[key] = {
+        backgroundColor: categoryTabStyles[key]?.backgroundColor ?? null,
+        textColor: row.value,
+      };
+    }
+  }
 
   const isNewUser = !user || !user.firstDrawAt;
 
@@ -184,6 +235,7 @@ export async function getHomePageData(options?: {
     packs,
     banners: bannersRaw,
     events,
+    categoryTabStyles,
   };
 }
 

@@ -95,10 +95,15 @@ export default function HomeClient({
   packs,
   banners,
   events,
+  categoryTabStyles,
 }: {
   packs: PackListItem[];
   banners: HomeBannerItem[];
   events: HomeEventItem[];
+  categoryTabStyles: Record<
+    string,
+    { backgroundColor: string | null; textColor: string | null }
+  >;
 }) {
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState<SortKey>("recommended");
@@ -144,6 +149,20 @@ export default function HomeClient({
   const activeCategory = categoryTabs.some((tab) => tab.value === category)
     ? category
     : "all";
+
+  const categoryTabColorMap = useMemo(() => {
+    const map: Record<
+      string,
+      { backgroundColor: string | null; textColor: string | null }
+    > = {};
+    for (const tab of categoryTabs) {
+      if (tab.value === "all") continue;
+      const style = categoryTabStyles[tab.value];
+      if (!style) continue;
+      map[tab.value] = style;
+    }
+    return map;
+  }, [categoryTabs, categoryTabStyles]);
 
   const filtered = useMemo(() => {
     let result =
@@ -247,6 +266,29 @@ export default function HomeClient({
           </div>
         </section>
       )}
+
+      <Tabs
+        tabs={categoryTabs}
+        active={activeCategory}
+        onChange={setCategory}
+        colorMap={categoryTabColorMap}
+      />
+
+      <div className="flex gap-1 px-4 py-1">
+        {sortOptions.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => setSort(opt.value)}
+            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+              sort === opt.value
+                ? "bg-gray-700 text-white"
+                : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
 
       {events.length > 0 && (
         <section className="px-4 space-y-3">
@@ -357,24 +399,6 @@ export default function HomeClient({
           })}
         </section>
       )}
-
-      <Tabs tabs={categoryTabs} active={activeCategory} onChange={setCategory} />
-
-      <div className="flex gap-1 px-4 py-1">
-        {sortOptions.map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => setSort(opt.value)}
-            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
-              sort === opt.value
-                ? "bg-gray-700 text-white"
-                : "text-gray-500 hover:text-gray-300"
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
 
       <OripaGrid packs={filtered} />
     </div>
