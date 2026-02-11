@@ -220,7 +220,7 @@ export default function HomeClient({
                   </>
                 )}
 
-                <div className="absolute inset-0 p-3 flex flex-col justify-center">
+                <div className="absolute inset-0 p-3 flex flex-col justify-center items-center text-center">
                   <p
                     className="text-[11px] font-bold tracking-wide opacity-90"
                     style={{ color: textColor }}

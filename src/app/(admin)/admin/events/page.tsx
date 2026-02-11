@@ -67,6 +67,27 @@ const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const DEFAULT_BG = "#4b1d1d";
 const DEFAULT_BORDER = "#f59e0b";
 const DEFAULT_TEXT = "#fff7ed";
+const COLOR_SWATCHES = [
+  "#111827",
+  "#1f2937",
+  "#4b1d1d",
+  "#7c2d12",
+  "#9a3412",
+  "#7f1d1d",
+  "#1e3a8a",
+  "#0f766e",
+  "#14532d",
+  "#4c1d95",
+  "#be185d",
+  "#f59e0b",
+  "#f97316",
+  "#22c55e",
+  "#06b6d4",
+  "#3b82f6",
+  "#a855f7",
+  "#f43f5e",
+  "#f8fafc",
+];
 
 const COLOR_PRESETS = [
   {
@@ -161,6 +182,17 @@ function normalizeColor(value: string, fallback: string) {
   return HEX_COLOR_PATTERN.test(trimmed) ? trimmed : fallback;
 }
 
+function normalizeColorForPicker(value: string, fallback: string) {
+  const normalized = normalizeColor(value, fallback).toLowerCase();
+  if (normalized.length === 4) {
+    const r = normalized[1];
+    const g = normalized[2];
+    const b = normalized[3];
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+  return normalized;
+}
+
 function EventPreview({
   form,
   packs,
@@ -197,9 +229,9 @@ function EventPreview({
           backgroundPosition: "center",
         }}
       >
-        <p className="text-[11px] font-bold tracking-wide opacity-90">{form.displayType}</p>
-        <h3 className="text-lg font-extrabold mt-1 break-words">{heading}</h3>
-        {subtitle && <p className="text-sm mt-1 opacity-90 break-words">{subtitle}</p>}
+        <p className="text-[11px] font-bold tracking-wide opacity-90 text-center">{form.displayType}</p>
+        <h3 className="text-lg font-extrabold mt-1 break-words text-center">{heading}</h3>
+        {subtitle && <p className="text-sm mt-1 opacity-90 break-words text-center">{subtitle}</p>}
         {form.description.trim() && (
           <p className="text-xs mt-2 opacity-80 break-words">{form.description.trim()}</p>
         )}
@@ -239,11 +271,19 @@ function ColorField({
   fallback: string;
 }) {
   const preview = normalizeColor(value, fallback);
+  const pickerValue = normalizeColorForPicker(value, fallback);
 
   return (
     <div className="space-y-1">
       <label className="text-xs text-gray-400">{label}</label>
       <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={pickerValue}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-10 h-10 rounded border border-gray-700 bg-gray-900 cursor-pointer"
+          aria-label={`${label}を選択`}
+        />
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -254,6 +294,21 @@ function ColorField({
           className="w-8 h-8 rounded border border-gray-700 shrink-0"
           style={{ backgroundColor: preview }}
         />
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {COLOR_SWATCHES.map((swatch) => {
+          const isActive = normalizeColorForPicker(preview, fallback) === swatch;
+          return (
+            <button
+              key={`${label}-${swatch}`}
+              type="button"
+              aria-label={`${label} ${swatch}`}
+              onClick={() => onChange(swatch)}
+              className={`h-5 w-5 rounded border ${isActive ? "border-white" : "border-gray-700"}`}
+              style={{ backgroundColor: swatch }}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -493,27 +548,53 @@ export default function EventsPage() {
 
   async function fetchAll() {
     setLoading(true);
-    try {
-      const [eventsRes, packsRes] = await Promise.all([
-        fetch("/api/admin/events"),
-        fetch("/api/admin/packs"),
-      ]);
-      if (!eventsRes.ok || !packsRes.ok) throw new Error();
+    const [eventsResult, packsResult] = await Promise.allSettled([
+      fetch("/api/admin/events"),
+      fetch("/api/admin/packs"),
+    ]);
 
-      const [eventsData, packsData]: [EventRow[], Array<{ id: string; title: string }>] =
-        await Promise.all([eventsRes.json(), packsRes.json()]);
+    let eventsError = false;
+    let packsError = false;
 
-      setRows(eventsData);
-      setPacks(
-        packsData
-          .map((pack) => ({ id: pack.id, title: pack.title }))
-          .sort((a, b) => a.title.localeCompare(b.title, "ja")),
-      );
-    } catch {
-      toast.error("イベント情報の取得に失敗しました");
-    } finally {
-      setLoading(false);
+    if (eventsResult.status === "fulfilled" && eventsResult.value.ok) {
+      try {
+        const eventsData = (await eventsResult.value.json()) as EventRow[];
+        setRows(eventsData);
+      } catch {
+        eventsError = true;
+        setRows([]);
+      }
+    } else {
+      eventsError = true;
+      setRows([]);
     }
+
+    if (packsResult.status === "fulfilled" && packsResult.value.ok) {
+      try {
+        const packsData = (await packsResult.value.json()) as Array<{ id: string; title: string }>;
+        setPacks(
+          packsData
+            .map((pack) => ({ id: pack.id, title: pack.title }))
+            .sort((a, b) => a.title.localeCompare(b.title, "ja")),
+        );
+      } catch {
+        packsError = true;
+        setPacks([]);
+      }
+    } else {
+      packsError = true;
+      setPacks([]);
+    }
+
+    if (eventsError && packsError) {
+      toast.error("イベント・パック情報の取得に失敗しました");
+    } else if (eventsError) {
+      toast.error("イベント情報の取得に失敗しました");
+    } else if (packsError) {
+      toast.error("パック情報の取得に失敗しました");
+    }
+
+    setLoading(false);
   }
 
   function validateForm(form: EventForm) {

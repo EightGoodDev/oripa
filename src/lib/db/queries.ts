@@ -86,7 +86,7 @@ export async function getHomePageData(options?: {
       : Promise.resolve(null),
   ]);
 
-  const [bannersRaw, eventsRaw] = await Promise.all([
+  const [bannersResult, eventsResult] = await Promise.allSettled([
     prisma.homeBanner.findMany({
       where: {
         tenantId,
@@ -137,6 +137,16 @@ export async function getHomePageData(options?: {
       },
     }),
   ]);
+
+  if (bannersResult.status === "rejected") {
+    console.error("Failed to load home banners", bannersResult.reason);
+  }
+  if (eventsResult.status === "rejected") {
+    console.error("Failed to load home events", eventsResult.reason);
+  }
+
+  const bannersRaw = bannersResult.status === "fulfilled" ? bannersResult.value : [];
+  const eventsRaw = eventsResult.status === "fulfilled" ? eventsResult.value : [];
 
   const isNewUser = !user || !user.firstDrawAt;
 
