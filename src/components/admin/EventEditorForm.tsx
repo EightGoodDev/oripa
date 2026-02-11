@@ -5,6 +5,7 @@ type EventDisplayType = "IMAGE" | "TEXT_FRAME";
 export interface PackOption {
   id: string;
   title: string;
+  status?: string;
 }
 
 export interface EventForm {
@@ -99,7 +100,7 @@ export const initialEventForm: EventForm = {
   sortOrder: 0,
   newUserOnly: false,
   isActive: true,
-  isPublished: false,
+  isPublished: true,
   packIds: [],
 };
 
@@ -124,7 +125,7 @@ export function extractEventErrorMessage(body: unknown, fallback: string) {
   return fallback;
 }
 
-export function validateEventForm(form: EventForm) {
+export function validateEventForm(form: EventForm, packs: PackOption[] = []) {
   if (!form.title.trim()) {
     return "タイトルは必須です";
   }
@@ -133,6 +134,15 @@ export function validateEventForm(form: EventForm) {
   }
   if (!form.linkUrl.trim() && form.packIds.length === 0) {
     return "対象パックかリンクURLのいずれかを設定してください";
+  }
+  if (!form.linkUrl.trim() && packs.length > 0) {
+    const selectedPacks = form.packIds
+      .map((id) => packs.find((pack) => pack.id === id))
+      .filter((pack): pack is PackOption => Boolean(pack));
+    const hasActivePack = selectedPacks.some((pack) => pack.status === "ACTIVE");
+    if (selectedPacks.length > 0 && !hasActivePack) {
+      return "対象パックにACTIVE（公開中）がないため、ユーザー画面には表示されません";
+    }
   }
 
   const startsAt = form.startsAt ? new Date(form.startsAt) : null;
@@ -490,6 +500,9 @@ export function EventEditorFormFields({
           新規ユーザー限定（初回ガチャ前）
         </label>
       </div>
+      <p className="text-[11px] text-gray-500 -mt-1">
+        ユーザー表示条件: 公開 + 有効 + 期間内 + （新規限定時は初回ガチャ前）+ リンクURLまたはACTIVEパック
+      </p>
 
       <div className="space-y-2">
         <p className="text-xs text-gray-400">対象パック（複数選択）</p>
@@ -514,6 +527,15 @@ export function EventEditorFormFields({
                   }}
                 />
                 <span>{pack.title}</span>
+                <span
+                  className={`ml-auto rounded px-1.5 py-0.5 text-[10px] ${
+                    pack.status === "ACTIVE"
+                      ? "bg-green-900/60 text-green-300"
+                      : "bg-gray-700 text-gray-300"
+                  }`}
+                >
+                  {pack.status ?? "UNKNOWN"}
+                </span>
               </label>
             );
           })}

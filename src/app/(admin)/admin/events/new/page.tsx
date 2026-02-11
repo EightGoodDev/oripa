@@ -32,10 +32,14 @@ export default function NewEventPage() {
     try {
       const res = await fetch("/api/admin/packs");
       if (!res.ok) throw new Error();
-      const packsData = (await res.json()) as Array<{ id: string; title: string }>;
+      const packsData = (await res.json()) as Array<{
+        id: string;
+        title: string;
+        status: string;
+      }>;
       setPacks(
         packsData
-          .map((pack) => ({ id: pack.id, title: pack.title }))
+          .map((pack) => ({ id: pack.id, title: pack.title, status: pack.status }))
           .sort((a, b) => a.title.localeCompare(b.title, "ja")),
       );
     } catch {
@@ -47,7 +51,7 @@ export default function NewEventPage() {
   }
 
   async function createEvent() {
-    const validation = validateEventForm(form);
+    const validation = validateEventForm(form, packs);
     if (validation) {
       toast.error(validation);
       return;

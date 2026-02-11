@@ -108,10 +108,14 @@ export default function EventsPage() {
 
     if (packsResult.status === "fulfilled" && packsResult.value.ok) {
       try {
-        const packsData = (await packsResult.value.json()) as Array<{ id: string; title: string }>;
+        const packsData = (await packsResult.value.json()) as Array<{
+          id: string;
+          title: string;
+          status: string;
+        }>;
         setPacks(
           packsData
-            .map((pack) => ({ id: pack.id, title: pack.title }))
+            .map((pack) => ({ id: pack.id, title: pack.title, status: pack.status }))
             .sort((a, b) => a.title.localeCompare(b.title, "ja")),
         );
       } catch {
@@ -147,7 +151,7 @@ export default function EventsPage() {
   async function saveEdit() {
     if (!editingId || !editForm) return;
 
-    const validation = validateEventForm(editForm);
+    const validation = validateEventForm(editForm, packs);
     if (validation) {
       toast.error(validation);
       return;
