@@ -33,7 +33,7 @@ function EventPackCard({
   return (
     <Link
       href={`/oripa/${pack.id}`}
-      className={`block group ${featured ? "col-span-2" : ""}`}
+      className={`block group ${featured ? "sm:col-span-2" : ""}`}
     >
       <div className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800 hover:border-gray-600 transition-colors">
         <div
@@ -48,8 +48,8 @@ function EventPackCard({
             className="object-cover"
             sizes={
               featured
-                ? "(max-width: 768px) 100vw, 760px"
-                : "(max-width: 768px) 50vw, 360px"
+                ? "(max-width: 768px) 100vw, 736px"
+                : "(max-width: 768px) 100vw, 360px"
             }
           />
           {pack.featured && (
@@ -207,7 +207,7 @@ export default function HomeClient({
                       src={banner.imageUrl}
                       alt={banner.title ?? "banner"}
                       fill
-                      sizes="(max-width: 768px) 100vw, 760px"
+                      sizes="(max-width: 768px) 100vw, 736px"
                       className="object-cover"
                     />
                   </div>
@@ -321,7 +321,7 @@ export default function HomeClient({
                           alt={event.title}
                           fill
                           className="object-cover"
-                          sizes="(max-width: 768px) 100vw, 760px"
+                          sizes="(max-width: 768px) 100vw, 736px"
                         />
                         <div className="absolute inset-0 bg-black/35" />
                         <div className="absolute inset-0 px-3 flex flex-col items-center justify-center text-center">
@@ -356,7 +356,7 @@ export default function HomeClient({
                       alt={event.title}
                       fill
                       className="object-cover"
-                      sizes="(max-width: 768px) 100vw, 760px"
+                      sizes="(max-width: 768px) 100vw, 736px"
                     />
                     <div className="absolute inset-0 bg-black/35" />
                     <div className="absolute inset-0 px-3 flex flex-col items-center justify-center text-center">
@@ -382,7 +382,7 @@ export default function HomeClient({
                 )}
 
                 {event.packs.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {event.packs.map((pack, index) => (
                       <EventPackCard
                         key={pack.id}
