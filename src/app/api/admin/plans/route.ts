@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit";
+import { resolveTenantId } from "@/lib/tenant/context";
 import { z } from "zod";
 
 const createPlanSchema = z.object({
@@ -20,8 +21,10 @@ export async function GET() {
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   const plans = await prisma.chargePlan.findMany({
+    where: { tenantId },
     orderBy: { sortOrder: "asc" },
   });
 
@@ -35,6 +38,7 @@ export async function POST(req: NextRequest) {
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   const body = await req.json();
   const parsed = createPlanSchema.safeParse(body);
@@ -49,6 +53,7 @@ export async function POST(req: NextRequest) {
 
   const plan = await prisma.chargePlan.create({
     data: {
+      tenantId,
       coins: data.coins,
       price: data.price,
       bonus: data.bonus,

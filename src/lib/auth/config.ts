@@ -76,12 +76,13 @@ export const authConfig: NextAuthConfig = {
       if (token.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { role: true, rank: true, coins: true },
+          select: { role: true, rank: true, coins: true, miles: true },
         });
         if (dbUser) {
           token.role = dbUser.role;
           token.rank = dbUser.rank;
           token.coins = dbUser.coins;
+          token.miles = dbUser.miles;
         }
       }
       return token;
@@ -92,6 +93,7 @@ export const authConfig: NextAuthConfig = {
         session.user.role = token.role as string;
         session.user.rank = token.rank as string;
         session.user.coins = token.coins as number;
+        session.user.miles = token.miles as number;
       }
       return session;
     },

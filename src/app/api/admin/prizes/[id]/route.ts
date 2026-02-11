@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit";
+import { resolveTenantId } from "@/lib/tenant/context";
 const VALID_RARITIES = ["N", "R", "SR", "SSR", "UR"] as const;
 
 export async function GET(
@@ -13,12 +14,13 @@ export async function GET(
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   try {
     const { id } = await params;
 
-    const prize = await prisma.prize.findUnique({
-      where: { id },
+    const prize = await prisma.prize.findFirst({
+      where: { id, tenantId },
       include: {
         _count: { select: { packPrizes: true } },
         packPrizes: {
@@ -56,11 +58,12 @@ export async function PUT(
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   try {
     const { id } = await params;
     const body = await req.json();
-    const { name, description, image, rarity, marketPrice, coinValue } = body;
+    const { name, description, image, genre, rarity, marketPrice, costPrice, coinValue } = body;
 
     // Validation
     if (!name || typeof name !== "string" || name.trim() === "") {
@@ -84,6 +87,13 @@ export async function PUT(
       );
     }
 
+    if (typeof costPrice !== "number" || costPrice < 0) {
+      return NextResponse.json(
+        { error: "原価は0以上の数値を入力してください" },
+        { status: 400 },
+      );
+    }
+
     if (typeof coinValue !== "number" || coinValue < 0) {
       return NextResponse.json(
         { error: "コイン価値は0以上の数値を入力してください" },
@@ -91,7 +101,17 @@ export async function PUT(
       );
     }
 
-    const existing = await prisma.prize.findUnique({ where: { id } });
+    const normalizedGenre =
+      typeof genre === "string" && genre.trim().length > 0 ? genre.trim() : "other";
+
+    if (normalizedGenre.length > 40) {
+      return NextResponse.json(
+        { error: "ジャンルは40文字以内で入力してください" },
+        { status: 400 },
+      );
+    }
+
+    const existing = await prisma.prize.findFirst({ where: { id, tenantId } });
     if (!existing) {
       return NextResponse.json(
         { error: "景品が見つかりません" },
@@ -105,8 +125,10 @@ export async function PUT(
         name: name.trim(),
         description: description ?? "",
         image,
+        genre: normalizedGenre,
         rarity,
         marketPrice,
+        costPrice,
         coinValue,
       },
     });
@@ -133,12 +155,13 @@ export async function DELETE(
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   try {
     const { id } = await params;
 
-    const prize = await prisma.prize.findUnique({
-      where: { id },
+    const prize = await prisma.prize.findFirst({
+      where: { id, tenantId },
       include: {
         _count: { select: { packPrizes: true } },
       },

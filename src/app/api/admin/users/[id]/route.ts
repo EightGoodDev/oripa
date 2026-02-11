@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit";
+import { resolveTenantId } from "@/lib/tenant/context";
 
 const VALID_ROLES = ["USER", "ADMIN", "SUPER_ADMIN"] as const;
 
@@ -15,11 +16,12 @@ export async function GET(
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   const { id } = await params;
 
-  const user = await prisma.user.findUnique({
-    where: { id },
+  const user = await prisma.user.findFirst({
+    where: { id, tenantId },
     select: {
       id: true,
       name: true,
@@ -82,12 +84,13 @@ export async function PATCH(
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   const { id } = await params;
   const body = await req.json();
   const adminId = session.user!.id!;
 
-  const existing = await prisma.user.findUnique({ where: { id } });
+  const existing = await prisma.user.findFirst({ where: { id, tenantId } });
   if (!existing) {
     return NextResponse.json(
       { error: "ユーザーが見つかりません" },
@@ -117,6 +120,7 @@ export async function PATCH(
       });
       await tx.coinTransaction.create({
         data: {
+          tenantId,
           userId: id,
           amount,
           balance: user.coins,
@@ -174,8 +178,8 @@ export async function PATCH(
     });
   }
 
-  const updated = await prisma.user.findUnique({
-    where: { id },
+  const updated = await prisma.user.findFirst({
+    where: { id, tenantId },
     select: {
       id: true,
       name: true,

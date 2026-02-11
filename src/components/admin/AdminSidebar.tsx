@@ -8,7 +8,13 @@ import { cn } from "@/lib/utils/cn";
 const navItems = [
   { href: "/admin/dashboard", label: "ダッシュボード", icon: "📊" },
   { href: "/admin/packs", label: "パック管理", icon: "🎴" },
+  { href: "/admin/categories", label: "カテゴリ管理", icon: "🗂️" },
   { href: "/admin/prizes", label: "景品管理", icon: "🎁" },
+  { href: "/admin/banners", label: "バナー管理", icon: "🖼️" },
+  { href: "/admin/events", label: "イベント管理", icon: "🎉" },
+  { href: "/admin/mile-rewards", label: "マイル交換景品", icon: "🎯" },
+  { href: "/admin/rank-settings", label: "ランク設定", icon: "🏅" },
+  { href: "/admin/config-versions", label: "設定履歴", icon: "🕘" },
   { href: "/admin/users", label: "ユーザー管理", icon: "👤" },
   { href: "/admin/plans", label: "プラン管理", icon: "💰" },
 ];
@@ -64,7 +70,11 @@ export default function AdminSidebar() {
         )}
       >
         <div className="p-6 border-b border-gray-800">
-          <Link href="/admin/dashboard" className="text-xl font-bold">
+          <Link
+            href="/admin/dashboard"
+            prefetch={false}
+            className="text-xl font-bold"
+          >
             <span className="text-gold-mid">ORIPA</span>
             <span className="text-gray-400 text-sm ml-2">管理画面</span>
           </Link>
@@ -78,6 +88,7 @@ export default function AdminSidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-colors",

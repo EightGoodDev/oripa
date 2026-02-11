@@ -2,10 +2,8 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 
 export default function AdminLoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -21,13 +19,13 @@ export default function AdminLoginPage() {
         email,
         password,
         redirect: false,
+        callbackUrl: "/admin/dashboard",
       });
 
       if (result?.error) {
         setError("メールアドレスまたはパスワードが正しくありません");
       } else {
-        router.push("/admin/dashboard");
-        router.refresh();
+        window.location.assign(result?.url ?? "/admin/dashboard");
       }
     } catch {
       setError("ログインに失敗しました");

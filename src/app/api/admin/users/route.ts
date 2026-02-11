@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/admin/auth";
+import { resolveTenantId } from "@/lib/tenant/context";
 
 const VALID_ROLES = ["USER", "ADMIN", "SUPER_ADMIN"] as const;
 const VALID_RANKS = ["BEGINNER", "BRONZE", "SILVER", "GOLD", "PLATINUM", "DIAMOND", "VIP"] as const;
@@ -11,6 +12,7 @@ export async function GET(req: NextRequest) {
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search") || undefined;
@@ -18,7 +20,7 @@ export async function GET(req: NextRequest) {
   const rank = searchParams.get("rank");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = {};
+  const where: any = { tenantId };
 
   if (search) {
     where.OR = [

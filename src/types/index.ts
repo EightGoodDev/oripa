@@ -1,6 +1,7 @@
 import type { Rarity } from "@prisma/client";
 
-export type { Rarity, Category, UserRank, OwnedItemStatus, PackStatus } from "@prisma/client";
+export type { Rarity, UserRank, OwnedItemStatus, PackStatus } from "@prisma/client";
+export type Category = string;
 
 export const RARITY_CONFIG: Record<
   Rarity,
@@ -36,6 +37,11 @@ export const CATEGORY_LABELS: Record<string, string> = {
   game: "ゲーム",
   other: "その他",
 };
+
+export function getCategoryLabel(category: string): string {
+  if (!category) return "-";
+  return CATEGORY_LABELS[category] || category;
+}
 
 // API response types
 export interface DrawResultResponse {
@@ -115,4 +121,21 @@ export interface RankingEntry {
   prizeRarity: Rarity;
   oripaTitle: string;
   drawnAt: string;
+}
+
+export interface HomeBannerItem {
+  id: string;
+  title: string | null;
+  imageUrl: string;
+  linkUrl: string | null;
+}
+
+export interface HomeEventItem {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  description: string;
+  imageUrl: string;
+  linkUrl: string | null;
+  packs: PackListItem[];
 }

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
+import { resolveTenantId } from "@/lib/tenant/context";
+import { generateUniqueReferralCode } from "@/lib/rewards/referral";
 
 const registerSchema = z.object({
   email: z.string().email("有効なメールアドレスを入力してください"),
@@ -13,12 +15,14 @@ const registerSchema = z.object({
       "パスワードは英字と数字を含めてください",
     ),
   name: z.string().min(1, "名前を入力してください").max(50),
+  inviteCode: z.string().trim().min(4).max(20).optional(),
 });
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, password, name } = registerSchema.parse(body);
+    const { email, password, name, inviteCode } = registerSchema.parse(body);
+    const tenantId = await resolveTenantId();
 
     const existing = await prisma.user.findUnique({
       where: { email },
@@ -34,17 +38,71 @@ export async function POST(req: NextRequest) {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name,
-        hashedPassword,
-      },
-      select: { id: true, email: true, name: true },
+    const user = await prisma.$transaction(async (tx) => {
+      let inviterId: string | null = null;
+
+      if (inviteCode) {
+        const inviter = await tx.user.findFirst({
+          where: {
+            tenantId,
+            referralCode: inviteCode,
+          },
+          select: { id: true },
+        });
+
+        if (!inviter) {
+          throw new Error("招待コードが無効です");
+        }
+
+        const inviteCount = await tx.inviteLink.count({
+          where: {
+            tenantId,
+            inviterId: inviter.id,
+          },
+        });
+
+        if (inviteCount >= 100) {
+          throw new Error("この招待コードは上限に達しています");
+        }
+
+        inviterId = inviter.id;
+      }
+
+      const referralCode = await generateUniqueReferralCode(tx);
+
+      const createdUser = await tx.user.create({
+        data: {
+          tenantId,
+          email,
+          name,
+          hashedPassword,
+          referralCode,
+          invitedByUserId: inviterId,
+        },
+        select: { id: true, email: true, name: true },
+      });
+
+      if (inviterId) {
+        await tx.inviteLink.create({
+          data: {
+            tenantId,
+            inviterId,
+            invitedUserId: createdUser.id,
+          },
+        });
+      }
+
+      return createdUser;
     });
 
     return NextResponse.json(user, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message.includes("招待コード")) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 },
+      );
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: error.issues[0].message },

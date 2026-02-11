@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
+import { resolveTenantId } from "@/lib/tenant/context";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
   }
+  const tenantId = await resolveTenantId();
 
   const { itemId } = await req.json();
   if (!itemId) {
@@ -16,11 +18,31 @@ export async function POST(req: NextRequest) {
   try {
     const result = await prisma.$transaction(async (tx) => {
       const item = await tx.ownedItem.findUnique({
-        where: { id: itemId, userId: session.user.id },
+        where: { id: itemId },
         include: { prize: { select: { coinValue: true, name: true } } },
       });
 
-      if (!item || item.status !== "OWNED") {
+      if (
+        !item ||
+        item.tenantId !== tenantId ||
+        item.userId !== session.user.id
+      ) {
+        throw new Error("交換可能なアイテムが見つかりません");
+      }
+
+      const user = await tx.user.findFirst({
+        where: {
+          id: session.user.id,
+          tenantId,
+        },
+        select: { id: true },
+      });
+
+      if (!user) {
+        throw new Error("ユーザーが見つかりません");
+      }
+
+      if (item.status !== "OWNED") {
         throw new Error("交換可能なアイテムが見つかりません");
       }
 
@@ -40,6 +62,7 @@ export async function POST(req: NextRequest) {
       // Create coin transaction
       await tx.coinTransaction.create({
         data: {
+          tenantId,
           userId: session.user.id,
           amount: item.prize.coinValue,
           balance: updatedUser.coins,

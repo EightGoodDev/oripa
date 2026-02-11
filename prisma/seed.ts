@@ -1,4 +1,4 @@
-import { PrismaClient, Rarity, Category } from "@prisma/client";
+import { PrismaClient, Rarity, UserRank } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 import { hash } from "bcryptjs";
@@ -65,7 +65,7 @@ interface PackData {
   title: string;
   description: string;
   image: string;
-  category: Category;
+  category: string;
   pricePerDraw: number;
   totalStock: number;
   remainingStock: number;
@@ -183,10 +183,53 @@ const chargePlans = [
   { coins: 55000, price: 50000, bonus: 5000, sortOrder: 6 },
 ];
 
+const defaultCategories = [
+  "sneaker",
+  "card",
+  "figure",
+  "game",
+  "other",
+];
+
+const defaultRankSettings: Array<{
+  rank: UserRank;
+  threshold: number;
+  coinRate: number;
+  mileRate: number;
+  bonus: number;
+  sortOrder: number;
+}> = [
+  { rank: "BEGINNER", threshold: 0, coinRate: 0, mileRate: 0.004, bonus: 0, sortOrder: 0 },
+  { rank: "BRONZE", threshold: 100000, coinRate: 0.01, mileRate: 0.004, bonus: 1000, sortOrder: 1 },
+  { rank: "SILVER", threshold: 300000, coinRate: 0.02, mileRate: 0.004, bonus: 5000, sortOrder: 2 },
+  { rank: "GOLD", threshold: 800000, coinRate: 0.03, mileRate: 0.006, bonus: 15000, sortOrder: 3 },
+  { rank: "PLATINUM", threshold: 2000000, coinRate: 0.04, mileRate: 0.007, bonus: 25000, sortOrder: 4 },
+  { rank: "DIAMOND", threshold: 4500000, coinRate: 0.05, mileRate: 0.01, bonus: 50000, sortOrder: 5 },
+  { rank: "VIP", threshold: 8000000, coinRate: 0.06, mileRate: 0.015, bonus: 100000, sortOrder: 6 },
+];
+
+function generateReferralCode(name: string, suffix: string) {
+  const base = name.replace(/\s+/g, "").slice(0, 4).toUpperCase() || "ORPA";
+  return `${base}${suffix}`.slice(0, 10);
+}
+
 async function main() {
   console.log("Seeding database...");
 
   // Clear existing data
+  await prisma.tenantConfigVersion.deleteMany();
+  await prisma.tenantContentOverride.deleteMany();
+  await prisma.tenantFeatureFlag.deleteMany();
+  await prisma.homeEventPack.deleteMany();
+  await prisma.homeEvent.deleteMany();
+  await prisma.homeBanner.deleteMany();
+  await prisma.rankSetting.deleteMany();
+  await prisma.mileExchangeOrder.deleteMany();
+  await prisma.mileRewardItem.deleteMany();
+  await prisma.phoneOtpChallenge.deleteMany();
+  await prisma.userRankBonusGrant.deleteMany();
+  await prisma.inviteLink.deleteMany();
+  await prisma.mileageTransaction.deleteMany();
   await prisma.coinTransaction.deleteMany();
   await prisma.shipmentItem.deleteMany();
   await prisma.shipment.deleteMany();
@@ -197,14 +240,50 @@ async function main() {
   await prisma.chargePlan.deleteMany();
   await prisma.packPrize.deleteMany();
   await prisma.oripaPack.deleteMany();
+  await prisma.packCategory.deleteMany();
   await prisma.prize.deleteMany();
   await prisma.adminAuditLog.deleteMany();
+  await prisma.tenant.deleteMany();
+
+  await prisma.tenant.create({
+    data: {
+      id: "default",
+      code: "default",
+      name: "Default Tenant",
+      isActive: true,
+    },
+  });
+
+  for (const row of defaultRankSettings) {
+    await prisma.rankSetting.create({
+      data: {
+        rank: row.rank,
+        chargeThreshold: row.threshold,
+        coinReturnRate: row.coinRate,
+        mileReturnRate: row.mileRate,
+        rankUpBonus: row.bonus,
+        sortOrder: row.sortOrder,
+        isActive: true,
+        isPublished: true,
+      },
+    });
+  }
 
   // Create charge plans
   for (const plan of chargePlans) {
     await prisma.chargePlan.create({ data: plan });
   }
   console.log(`Created ${chargePlans.length} charge plans`);
+
+  for (const [index, name] of defaultCategories.entries()) {
+    await prisma.packCategory.create({
+      data: {
+        name,
+        sortOrder: index,
+      },
+    });
+  }
+  console.log(`Created ${defaultCategories.length} pack categories`);
 
   // Create prizes and packs
   for (const packData of packs) {
@@ -215,8 +294,10 @@ async function main() {
         data: {
           name: prizeData.name,
           image: prizeData.image,
+          genre: packData.category,
           rarity: prizeData.rarity,
           marketPrice: prizeData.marketPrice,
+          costPrice: Math.floor(prizeData.marketPrice * 0.6),
           coinValue: prizeData.coinValue,
         },
       });
@@ -266,6 +347,48 @@ async function main() {
     console.log(`Created pack: ${packData.title} with ${createdPrizes.length} prizes`);
   }
 
+  await prisma.homeBanner.createMany({
+    data: [
+      {
+        title: "新規登録キャンペーン",
+        imageUrl: img("初回限定バナー"),
+        linkUrl: "/mypage",
+        sortOrder: 0,
+        isPublished: true,
+      },
+      {
+        title: "週末イベント開催中",
+        imageUrl: img("週末イベント"),
+        linkUrl: "/",
+        sortOrder: 1,
+        isPublished: true,
+      },
+    ],
+  });
+
+  await prisma.mileRewardItem.createMany({
+    data: [
+      {
+        name: "オリパ無料チケット",
+        description: "1回無料でガチャを引けるチケット",
+        imageUrl: img("無料チケット"),
+        requiredMiles: 300,
+        stock: 300,
+        isPublished: true,
+        sortOrder: 0,
+      },
+      {
+        name: "限定サプライセット",
+        description: "限定スリーブとローダーのセット",
+        imageUrl: img("サプライ"),
+        requiredMiles: 1200,
+        stock: 80,
+        isPublished: true,
+        sortOrder: 1,
+      },
+    ],
+  });
+
   // ─── Test Users ───────────────────────────────────────
   // Clear users (cascade deletes accounts/sessions)
   await prisma.session.deleteMany();
@@ -282,7 +405,10 @@ async function main() {
       role: "ADMIN",
       rank: "DIAMOND",
       coins: 999999,
+      miles: 12000,
       totalSpent: 0,
+      totalCharged: 4600000,
+      referralCode: generateReferralCode("admin", "A1"),
       emailVerified: new Date(),
     },
   });
@@ -296,7 +422,10 @@ async function main() {
       role: "USER",
       rank: "GOLD",
       coins: 15000,
+      miles: 2500,
       totalSpent: 85000,
+      totalCharged: 920000,
+      referralCode: generateReferralCode("user", "B1"),
       emailVerified: new Date(),
     },
   });
@@ -309,7 +438,10 @@ async function main() {
       role: "USER",
       rank: "SILVER",
       coins: 3200,
+      miles: 980,
       totalSpent: 24000,
+      totalCharged: 350000,
+      referralCode: generateReferralCode("tanaka", "C1"),
       emailVerified: new Date(),
     },
   });
@@ -322,7 +454,10 @@ async function main() {
       role: "USER",
       rank: "BEGINNER",
       coins: 500,
+      miles: 110,
       totalSpent: 5000,
+      totalCharged: 50000,
+      referralCode: generateReferralCode("suzuki", "D1"),
       emailVerified: new Date(),
     },
   });
@@ -361,6 +496,28 @@ async function main() {
   const allPacks = await prisma.oripaPack.findMany({
     include: { packPrizes: { include: { prize: true } } },
   });
+
+  if (allPacks.length >= 2) {
+    const homeEvent = await prisma.homeEvent.create({
+      data: {
+        title: "登録直後限定 超お得オリパ",
+        subtitle: "初回ガチャまで",
+        description: "新規ユーザー向けの期間限定イベント",
+        imageUrl: img("新規限定イベント"),
+        linkUrl: "/",
+        newUserOnly: true,
+        sortOrder: 0,
+        isPublished: true,
+      },
+    });
+
+    await prisma.homeEventPack.createMany({
+      data: [
+        { homeEventId: homeEvent.id, packId: allPacks[0].id, sortOrder: 0 },
+        { homeEventId: homeEvent.id, packId: allPacks[1].id, sortOrder: 1 },
+      ],
+    });
+  }
 
   const drawsToCreate: Array<{
     userId: string;

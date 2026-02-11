@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit";
+import { resolveTenantId } from "@/lib/tenant/context";
 const VALID_RARITIES = ["N", "R", "SR", "SSR", "UR"] as const;
 
 export async function GET(req: NextRequest) {
@@ -10,13 +11,15 @@ export async function GET(req: NextRequest) {
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   try {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") ?? "";
     const rarity = searchParams.get("rarity");
+    const genre = searchParams.get("genre");
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { tenantId };
 
     if (search) {
       where.name = { contains: search, mode: "insensitive" };
@@ -24,6 +27,10 @@ export async function GET(req: NextRequest) {
 
     if (rarity && VALID_RARITIES.includes(rarity as typeof VALID_RARITIES[number])) {
       where.rarity = rarity;
+    }
+
+    if (genre) {
+      where.genre = genre;
     }
 
     const prizes = await prisma.prize.findMany({
@@ -51,10 +58,11 @@ export async function POST(req: NextRequest) {
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   try {
     const body = await req.json();
-    const { name, description, image, rarity, marketPrice, coinValue } = body;
+    const { name, description, image, genre, rarity, marketPrice, costPrice, coinValue } = body;
 
     // Validation
     if (!name || typeof name !== "string" || name.trim() === "") {
@@ -78,6 +86,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (typeof costPrice !== "number" || costPrice < 0) {
+      return NextResponse.json(
+        { error: "原価は0以上の数値を入力してください" },
+        { status: 400 },
+      );
+    }
+
     if (typeof coinValue !== "number" || coinValue < 0) {
       return NextResponse.json(
         { error: "コイン価値は0以上の数値を入力してください" },
@@ -85,13 +100,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const normalizedGenre =
+      typeof genre === "string" && genre.trim().length > 0 ? genre.trim() : "other";
+
+    if (normalizedGenre.length > 40) {
+      return NextResponse.json(
+        { error: "ジャンルは40文字以内で入力してください" },
+        { status: 400 },
+      );
+    }
+
     const newPrize = await prisma.prize.create({
       data: {
+        tenantId,
         name: name.trim(),
         description: description ?? "",
         image,
+        genre: normalizedGenre,
         rarity,
         marketPrice,
+        costPrice,
         coinValue,
       },
     });

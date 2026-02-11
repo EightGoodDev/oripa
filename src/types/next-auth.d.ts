@@ -7,6 +7,7 @@ declare module "next-auth" {
       role: string;
       rank: string;
       coins: number;
+      miles: number;
     } & DefaultSession["user"];
   }
 }
@@ -17,5 +18,6 @@ declare module "next-auth/jwt" {
     role?: string;
     rank?: string;
     coins?: number;
+    miles?: number;
   }
 }

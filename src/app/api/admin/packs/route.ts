@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit";
+import { resolveTenantId } from "@/lib/tenant/context";
 import { z } from "zod";
 
 const createPackSchema = z.object({
   title: z.string().min(1, "タイトルを入力してください"),
   description: z.string().optional().default(""),
   image: z.string().url("有効なURLを入力してください"),
-  category: z.enum(["sneaker", "card", "figure", "game", "other"]),
+  category: z.string().trim().min(1, "カテゴリを入力してください"),
+  minRank: z.enum(["BEGINNER", "BRONZE", "SILVER", "GOLD", "PLATINUM", "DIAMOND", "VIP"]).optional().default("BEGINNER"),
   pricePerDraw: z.coerce.number().int().min(1, "1以上を入力"),
   totalStock: z.coerce.number().int().min(1, "1以上を入力"),
   limitPerUser: z.coerce.number().int().min(1).nullable().optional(),
@@ -23,12 +25,13 @@ export async function GET(req: NextRequest) {
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search");
   const status = searchParams.get("status");
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { tenantId };
   if (search) {
     where.title = { contains: search, mode: "insensitive" };
   }
@@ -54,6 +57,7 @@ export async function POST(req: NextRequest) {
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   const body = await req.json();
   const parsed = createPackSchema.safeParse(body);
@@ -66,12 +70,30 @@ export async function POST(req: NextRequest) {
 
   const data = parsed.data;
 
+  const category = await prisma.packCategory.findFirst({
+    where: {
+      tenantId,
+      name: data.category,
+      isActive: true,
+    },
+    select: { id: true },
+  });
+
+  if (!category) {
+    return NextResponse.json(
+      { error: { category: ["カテゴリが未登録です。先にカテゴリを作成してください。"] } },
+      { status: 400 },
+    );
+  }
+
   const pack = await prisma.oripaPack.create({
     data: {
+      tenantId,
       title: data.title,
       description: data.description,
       image: data.image,
       category: data.category,
+      minRank: data.minRank,
       pricePerDraw: data.pricePerDraw,
       totalStock: data.totalStock,
       remainingStock: data.totalStock,

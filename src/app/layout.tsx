@@ -7,6 +7,7 @@ import QueryProvider from "@/components/providers/QueryProvider";
 
 const notoSansJP = Noto_Sans_JP({
   subsets: ["latin"],
+  preload: false,
   variable: "--font-sans",
 });
 

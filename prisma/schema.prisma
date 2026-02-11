@@ -16,14 +16,6 @@ enum Rarity {
   UR
 }
 
-enum Category {
-  sneaker
-  card
-  figure
-  game
-  other
-}
-
 enum UserRank {
   BEGINNER
   BRONZE
@@ -79,44 +71,91 @@ enum PaymentMethod {
   PAYPAY
 }
 
+enum MileExchangeOrderStatus {
+  REQUESTED
+  APPROVED
+  SHIPPED
+  COMPLETED
+  REJECTED
+  CANCELED
+}
+
+enum ConfigDomain {
+  RANKS
+  HOME_BANNERS
+  HOME_EVENTS
+  MILE_REWARDS
+  FEATURE_FLAGS
+  CONTENT_OVERRIDES
+}
+
+// ─── Tenant ───────────────────────────────────────────
+
+model Tenant {
+  id        String   @id
+  code      String   @unique
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // ─── Auth / User ──────────────────────────────────────
 
 model User {
-  id             String    @id @default(cuid())
-  email          String?   @unique
-  emailVerified  DateTime?
-  name           String?
-  image          String?
-  hashedPassword String?
-  phone          String?
-  phoneVerified  Boolean   @default(false)
-  ageVerified    Boolean   @default(false)
-  role           UserRole  @default(USER)
-  rank           UserRank  @default(BEGINNER)
-  coins          Int       @default(0)
-  totalSpent     Int       @default(0)
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  tenantId        String    @default("default")
+  email           String?   @unique
+  emailVerified   DateTime?
+  name            String?
+  image           String?
+  hashedPassword  String?
+  phone           String?
+  phoneVerified   Boolean   @default(false)
+  ageVerified     Boolean   @default(false)
+  role            UserRole  @default(USER)
+  rank            UserRank  @default(BEGINNER)
+  coins           Int       @default(0)
+  miles           Int       @default(0)
+  totalSpent      Int       @default(0)
+  totalCharged    Int       @default(0)
+  referralCode    String?   @unique
+  invitedByUserId String?
+  firstDrawAt     DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   // Auth.js relations
   accounts Account[]
   sessions Session[]
 
   // App relations
-  draws             Draw[]
-  ownedItems        OwnedItem[]
-  coinTransactions  CoinTransaction[]
-  chargeOrders      ChargeOrder[]
-  shippingAddresses ShippingAddress[]
-  shipments         Shipment[]
+  draws              Draw[]
+  ownedItems         OwnedItem[]
+  coinTransactions   CoinTransaction[]
+  chargeOrders       ChargeOrder[]
+  shippingAddresses  ShippingAddress[]
+  shipments          Shipment[]
+  mileTransactions   MileageTransaction[]
+  mileExchangeOrders MileExchangeOrder[]
+  rankBonusGrants    UserRankBonusGrant[]
+  phoneOtpChallenges PhoneOtpChallenge[]
 
+  invitedBy    User?  @relation("UserReferrals", fields: [invitedByUserId], references: [id], onDelete: SetNull)
+  invitedUsers User[] @relation("UserReferrals")
+
+  inviteLinksSent    InviteLink[] @relation("InviteLinksSent")
+  inviteLinkReceived InviteLink?  @relation("InviteLinkReceived")
+
+  @@index([tenantId])
   @@index([email])
   @@index([rank])
 }
 
 model Account {
   id                String  @id @default(cuid())
+  tenantId          String  @default("default")
   userId            String
   type              String
   provider          String
@@ -132,36 +171,41 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
-  @@index([userId])
+  @@index([tenantId, userId])
 }
 
 model Session {
   id           String   @id @default(cuid())
+  tenantId     String   @default("default")
   sessionToken String   @unique
   userId       String
   expires      DateTime
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
+  @@index([tenantId, userId])
 }
 
 model VerificationToken {
+  tenantId   String   @default("default")
   identifier String
   token      String   @unique
   expires    DateTime
 
   @@unique([identifier, token])
+  @@index([tenantId])
 }
 
 // ─── Oripa / Gacha ────────────────────────────────────
 
 model OripaPack {
   id             String     @id @default(cuid())
+  tenantId       String     @default("default")
   title          String
   description    String
   image          String
-  category       Category
+  category       String
+  minRank        UserRank   @default(BEGINNER)
   pricePerDraw   Int
   totalStock     Int
   remainingStock Int
@@ -175,36 +219,55 @@ model OripaPack {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
-  lastOnePrize Prize?      @relation("LastOnePrize", fields: [lastOnePrizeId], references: [id])
+  lastOnePrize Prize?          @relation("LastOnePrize", fields: [lastOnePrizeId], references: [id])
   packPrizes   PackPrize[]
   draws        Draw[]
+  eventLinks   HomeEventPack[]
 
-  @@index([status, category])
-  @@index([status, sortOrder])
-  @@index([featured])
+  @@index([tenantId, status, category])
+  @@index([tenantId, status, sortOrder])
+  @@index([tenantId, featured])
+}
+
+model PackCategory {
+  id        String   @id @default(cuid())
+  tenantId  String   @default("default")
+  name      String
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isActive, sortOrder])
 }
 
 model Prize {
-  id          String @id @default(cuid())
+  id          String   @id @default(cuid())
+  tenantId    String   @default("default")
   name        String
-  description String @default("")
+  description String   @default("")
   image       String
+  genre       String   @default("other")
   rarity      Rarity
   marketPrice Int
+  costPrice   Int      @default(0)
   coinValue   Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  packPrizes     PackPrize[]
-  draws          Draw[]
-  ownedItems     OwnedItem[]
-  lastOnePacks   OripaPack[] @relation("LastOnePrize")
+  packPrizes   PackPrize[]
+  draws        Draw[]
+  ownedItems   OwnedItem[]
+  lastOnePacks OripaPack[] @relation("LastOnePrize")
 
-  @@index([rarity])
+  @@index([tenantId, genre])
+  @@index([tenantId, rarity])
 }
 
 model PackPrize {
   id                String @id @default(cuid())
+  tenantId          String @default("default")
   packId            String
   prizeId           String
   weight            Int
@@ -216,11 +279,12 @@ model PackPrize {
   draws Draw[]
 
   @@unique([packId, prizeId])
-  @@index([packId])
+  @@index([tenantId, packId])
 }
 
 model Draw {
   id          String   @id @default(cuid())
+  tenantId    String   @default("default")
   userId      String?
   packId      String
   packPrizeId String
@@ -229,78 +293,82 @@ model Draw {
   isTrial     Boolean  @default(false)
   createdAt   DateTime @default(now())
 
-  user      User?     @relation(fields: [userId], references: [id])
-  pack      OripaPack @relation(fields: [packId], references: [id])
-  packPrize PackPrize @relation(fields: [packPrizeId], references: [id])
-  prize     Prize     @relation(fields: [prizeId], references: [id])
+  user      User?      @relation(fields: [userId], references: [id])
+  pack      OripaPack  @relation(fields: [packId], references: [id])
+  packPrize PackPrize  @relation(fields: [packPrizeId], references: [id])
+  prize     Prize      @relation(fields: [prizeId], references: [id])
   ownedItem OwnedItem?
 
-  @@index([userId, createdAt])
-  @@index([packId, createdAt])
-  @@index([createdAt])
+  @@index([tenantId, userId, createdAt])
+  @@index([tenantId, packId, createdAt])
+  @@index([tenantId, createdAt])
 }
 
 // ─── Inventory / Shipping ─────────────────────────────
 
 model OwnedItem {
-  id         String          @id @default(cuid())
-  userId     String
-  prizeId    String
-  drawId     String          @unique
-  status     OwnedItemStatus @default(OWNED)
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
+  id        String          @id @default(cuid())
+  tenantId  String          @default("default")
+  userId    String
+  prizeId   String
+  drawId    String          @unique
+  status    OwnedItemStatus @default(OWNED)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   user          User           @relation(fields: [userId], references: [id])
   prize         Prize          @relation(fields: [prizeId], references: [id])
   draw          Draw           @relation(fields: [drawId], references: [id])
   shipmentItems ShipmentItem[]
 
-  @@index([userId, status])
+  @@index([tenantId, userId, status])
 }
 
 model ShippingAddress {
-  id         String  @id @default(cuid())
+  id         String   @id @default(cuid())
+  tenantId   String   @default("default")
   userId     String
-  label      String  @default("自宅")
+  label      String   @default("自宅")
   postalCode String
   prefecture String
   city       String
   address1   String
   address2   String?
   phone      String
-  isDefault  Boolean @default(false)
+  isDefault  Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   user      User       @relation(fields: [userId], references: [id])
   shipments Shipment[]
 
-  @@index([userId])
+  @@index([tenantId, userId])
 }
 
 model Shipment {
-  id               String         @id @default(cuid())
-  userId           String
+  id                String         @id @default(cuid())
+  tenantId          String         @default("default")
+  userId            String
   shippingAddressId String
-  status           ShipmentStatus @default(PENDING)
-  trackingNumber   String?
-  carrier          String?
-  shippingFee      Int            @default(0)
-  notes            String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  status            ShipmentStatus @default(PENDING)
+  trackingNumber    String?
+  carrier           String?
+  shippingFee       Int            @default(0)
+  notes             String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   user            User            @relation(fields: [userId], references: [id])
   shippingAddress ShippingAddress @relation(fields: [shippingAddressId], references: [id])
   items           ShipmentItem[]
 
-  @@index([userId, status])
-  @@index([status])
+  @@index([tenantId, userId, status])
+  @@index([tenantId, status])
 }
 
 model ShipmentItem {
   id          String @id @default(cuid())
+  tenantId    String @default("default")
   shipmentId  String
   ownedItemId String
 
@@ -308,69 +376,298 @@ model ShipmentItem {
   ownedItem OwnedItem @relation(fields: [ownedItemId], references: [id])
 
   @@unique([shipmentId, ownedItemId])
+  @@index([tenantId])
 }
 
 // ─── Coins / Payment ──────────────────────────────────
 
 model ChargePlan {
-  id            String  @id @default(cuid())
+  id            String   @id @default(cuid())
+  tenantId      String   @default("default")
   coins         Int
   price         Int
-  bonus         Int     @default(0)
-  isPopular     Boolean @default(false)
-  firstTimeOnly Boolean @default(false)
-  isActive      Boolean @default(true)
-  sortOrder     Int     @default(0)
+  bonus         Int      @default(0)
+  isPopular     Boolean  @default(false)
+  firstTimeOnly Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   chargeOrders ChargeOrder[]
 
-  @@index([isActive, sortOrder])
+  @@index([tenantId, isActive, sortOrder])
 }
 
 model ChargeOrder {
-  id                String        @id @default(cuid())
-  userId            String
-  chargePlanId      String
-  coins             Int
-  amount            Int
-  bonus             Int           @default(0)
-  status            ChargeStatus  @default(PENDING)
-  paymentMethod     PaymentMethod @default(CREDIT_CARD)
-  stripePaymentId   String?       @unique
-  stripeSessionId   String?       @unique
-  paypayOrderId     String?       @unique
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  id              String        @id @default(cuid())
+  tenantId        String        @default("default")
+  userId          String
+  chargePlanId    String
+  coins           Int
+  amount          Int
+  bonus           Int           @default(0)
+  status          ChargeStatus  @default(PENDING)
+  paymentMethod   PaymentMethod @default(CREDIT_CARD)
+  stripePaymentId String?       @unique
+  stripeSessionId String?       @unique
+  paypayOrderId   String?       @unique
+  metadata        Json?
+  completedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   user       User       @relation(fields: [userId], references: [id])
   chargePlan ChargePlan @relation(fields: [chargePlanId], references: [id])
 
-  @@index([userId, createdAt])
-  @@index([status])
+  @@index([tenantId, userId, createdAt])
+  @@index([tenantId, status])
 }
 
 model CoinTransaction {
   id          String   @id @default(cuid())
+  tenantId    String   @default("default")
   userId      String
   amount      Int
   balance     Int
-  type        String   // CHARGE, DRAW, EXCHANGE, REFUND, BONUS, ADMIN_ADJUST
+  type        String // CHARGE, DRAW, EXCHANGE, REFUND, BONUS, ADMIN_ADJUST
   description String
   referenceId String?
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
 
-  @@index([userId, createdAt])
-  @@index([type])
+  @@index([tenantId, userId, createdAt])
+  @@index([tenantId, type])
+}
+
+// ─── Rewards / Invite / OTP ───────────────────────────
+
+model MileageTransaction {
+  id          String   @id @default(cuid())
+  tenantId    String   @default("default")
+  userId      String
+  amount      Int
+  balance     Int
+  type        String // CHARGE_MILE, INVITE_PHONE_BONUS, INVITE_FIRST_CHARGE_BONUS, MILE_EXCHANGE, ADMIN_ADJUST
+  description String
+  referenceId String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, userId, createdAt])
+  @@index([tenantId, type])
+}
+
+model InviteLink {
+  id                      String    @id @default(cuid())
+  tenantId                String    @default("default")
+  inviterId               String
+  invitedUserId           String    @unique
+  createdAt               DateTime  @default(now())
+  phoneVerifiedRewardedAt DateTime?
+  firstChargeRewardedAt   DateTime?
+
+  inviter User @relation("InviteLinksSent", fields: [inviterId], references: [id], onDelete: Cascade)
+  invited User @relation("InviteLinkReceived", fields: [invitedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, inviterId, invitedUserId])
+  @@index([tenantId, inviterId])
+}
+
+model UserRankBonusGrant {
+  id        String   @id @default(cuid())
+  tenantId  String   @default("default")
+  userId    String
+  rank      UserRank
+  amount    Int
+  reason    String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId, rank])
+  @@index([tenantId, userId])
+}
+
+model PhoneOtpChallenge {
+  id         String    @id @default(cuid())
+  tenantId   String    @default("default")
+  userId     String
+  phone      String
+  code       String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, createdAt])
+  @@index([tenantId, phone])
+}
+
+model MileRewardItem {
+  id            String   @id @default(cuid())
+  tenantId      String   @default("default")
+  name          String
+  description   String   @default("")
+  imageUrl      String
+  requiredMiles Int
+  stock         Int?
+  isActive      Boolean  @default(true)
+  isPublished   Boolean  @default(false)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  orders MileExchangeOrder[]
+
+  @@index([tenantId, isActive, isPublished, sortOrder])
+}
+
+model MileExchangeOrder {
+  id                String                  @id @default(cuid())
+  tenantId          String                  @default("default")
+  userId            String
+  itemId            String
+  requiredMiles     Int
+  status            MileExchangeOrderStatus @default(REQUESTED)
+  shippingAddressId String?
+  note              String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  user User           @relation(fields: [userId], references: [id])
+  item MileRewardItem @relation(fields: [itemId], references: [id])
+
+  @@index([tenantId, userId, createdAt])
+  @@index([tenantId, status])
+}
+
+// ─── Tenant Config ────────────────────────────────────
+
+model RankSetting {
+  id              String   @id @default(cuid())
+  tenantId        String   @default("default")
+  rank            UserRank
+  chargeThreshold Int
+  coinReturnRate  Float    @default(0)
+  mileReturnRate  Float    @default(0)
+  rankUpBonus     Int      @default(0)
+  sortOrder       Int      @default(0)
+  isActive        Boolean  @default(true)
+  isPublished     Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, rank])
+  @@index([tenantId, isActive, isPublished, sortOrder])
+}
+
+model HomeBanner {
+  id          String    @id @default(cuid())
+  tenantId    String    @default("default")
+  title       String?
+  imageUrl    String
+  linkUrl     String?
+  startsAt    DateTime?
+  endsAt      DateTime?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  isPublished Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([tenantId, isActive, isPublished, sortOrder])
+}
+
+model HomeEvent {
+  id          String    @id @default(cuid())
+  tenantId    String    @default("default")
+  title       String
+  subtitle    String?
+  description String    @default("")
+  imageUrl    String
+  linkUrl     String?
+  startsAt    DateTime?
+  endsAt      DateTime?
+  newUserOnly Boolean   @default(false)
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  isPublished Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  packs HomeEventPack[]
+
+  @@index([tenantId, isActive, isPublished, sortOrder])
+}
+
+model HomeEventPack {
+  id          String   @id @default(cuid())
+  tenantId    String   @default("default")
+  homeEventId String
+  packId      String
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  homeEvent HomeEvent @relation(fields: [homeEventId], references: [id], onDelete: Cascade)
+  pack      OripaPack @relation(fields: [packId], references: [id], onDelete: Cascade)
+
+  @@unique([homeEventId, packId])
+  @@index([tenantId, homeEventId, sortOrder])
+}
+
+model TenantFeatureFlag {
+  id           String   @id @default(cuid())
+  tenantId     String   @default("default")
+  key          String
+  valueBoolean Boolean?
+  valueString  String?
+  isPublished  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([tenantId, key])
+  @@index([tenantId, isPublished])
+}
+
+model TenantContentOverride {
+  id          String   @id @default(cuid())
+  tenantId    String   @default("default")
+  key         String
+  value       String
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, key])
+  @@index([tenantId, isPublished])
+}
+
+model TenantConfigVersion {
+  id                    String       @id @default(cuid())
+  tenantId              String       @default("default")
+  domain                ConfigDomain
+  version               Int
+  snapshot              Json
+  publishedBy           String?
+  description           String?
+  rolledBackFromVersion Int?
+  publishedAt           DateTime     @default(now())
+  createdAt             DateTime     @default(now())
+
+  @@unique([tenantId, domain, version])
+  @@index([tenantId, domain, publishedAt])
 }
 
 // ─── Admin ────────────────────────────────────────────
 
 model AdminAuditLog {
   id         String   @id @default(cuid())
+  tenantId   String   @default("default")
   adminId    String
   action     String
   resource   String
@@ -379,7 +676,7 @@ model AdminAuditLog {
   ipAddress  String?
   createdAt  DateTime @default(now())
 
-  @@index([adminId, createdAt])
-  @@index([resource, resourceId])
-  @@index([createdAt])
+  @@index([tenantId, adminId, createdAt])
+  @@index([tenantId, resource, resourceId])
+  @@index([tenantId, createdAt])
 }

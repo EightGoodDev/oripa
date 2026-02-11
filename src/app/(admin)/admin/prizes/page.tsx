@@ -7,14 +7,16 @@ import DataTable, { Column } from "@/components/admin/DataTable";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import { formatPrice, formatCoins, formatDate } from "@/lib/utils/format";
-import type { Rarity } from "@/types";
+import { getCategoryLabel, type Rarity } from "@/types";
 
 interface Prize {
   id: string;
   name: string;
   image: string;
+  genre: string;
   rarity: Rarity;
   marketPrice: number;
+  costPrice: number;
   coinValue: number;
   createdAt: string;
   _count: {
@@ -75,6 +77,11 @@ export default function PrizesPage() {
       sortable: true,
     },
     {
+      key: "genre",
+      label: "ジャンル",
+      render: (row) => getCategoryLabel(row.genre),
+    },
+    {
       key: "rarity",
       label: "レアリティ",
       render: (row) => <Badge rarity={row.rarity} />,
@@ -84,6 +91,12 @@ export default function PrizesPage() {
       label: "市場価格",
       sortable: true,
       render: (row) => formatPrice(row.marketPrice),
+    },
+    {
+      key: "costPrice",
+      label: "原価",
+      sortable: true,
+      render: (row) => formatPrice(row.costPrice),
     },
     {
       key: "coinValue",

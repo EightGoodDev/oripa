@@ -7,7 +7,7 @@ import type { NextAuthConfig } from "next-auth";
 export const authEdgeConfig: NextAuthConfig = {
   session: { strategy: "jwt" },
   pages: {
-    signIn: "/login",
+    signIn: "/admin/login",
   },
   providers: [],
   callbacks: {
@@ -23,6 +23,7 @@ export const authEdgeConfig: NextAuthConfig = {
         session.user.role = token.role as string;
         session.user.rank = token.rank as string;
         session.user.coins = token.coins as number;
+        session.user.miles = token.miles as number;
       }
       return session;
     },

@@ -6,7 +6,7 @@ import Link from "next/link";
 import DataTable, { type Column } from "@/components/admin/DataTable";
 import Button from "@/components/ui/Button";
 import { formatPrice, formatDate } from "@/lib/utils/format";
-import { CATEGORY_LABELS } from "@/types";
+import { getCategoryLabel } from "@/types";
 
 interface Pack {
   id: string;
@@ -55,7 +55,6 @@ export default function PacksPage() {
     if (statusFilter) params.set("status", statusFilter);
     const url = `/api/admin/packs${params.toString() ? `?${params}` : ""}`;
 
-    setLoading(true);
     fetch(url)
       .then((r) => r.json())
       .then((data) => setPacks(data))
@@ -67,7 +66,7 @@ export default function PacksPage() {
     {
       key: "category",
       label: "カテゴリ",
-      render: (row) => CATEGORY_LABELS[row.category] || row.category,
+      render: (row) => getCategoryLabel(row.category),
     },
     {
       key: "pricePerDraw",

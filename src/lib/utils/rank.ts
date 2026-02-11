@@ -1,18 +1,18 @@
 import { UserRank } from "@prisma/client";
 
 const RANK_THRESHOLDS: { rank: UserRank; threshold: number }[] = [
-  { rank: "VIP", threshold: 500000 },
-  { rank: "DIAMOND", threshold: 200000 },
-  { rank: "PLATINUM", threshold: 100000 },
-  { rank: "GOLD", threshold: 50000 },
-  { rank: "SILVER", threshold: 20000 },
-  { rank: "BRONZE", threshold: 5000 },
+  { rank: "VIP", threshold: 8000000 },
+  { rank: "DIAMOND", threshold: 4500000 },
+  { rank: "PLATINUM", threshold: 2000000 },
+  { rank: "GOLD", threshold: 800000 },
+  { rank: "SILVER", threshold: 300000 },
+  { rank: "BRONZE", threshold: 100000 },
   { rank: "BEGINNER", threshold: 0 },
 ];
 
-export function calcRank(totalSpent: number): UserRank {
+export function calcRank(totalCharged: number): UserRank {
   for (const { rank, threshold } of RANK_THRESHOLDS) {
-    if (totalSpent >= threshold) return rank;
+    if (totalCharged >= threshold) return rank;
   }
   return "BEGINNER";
 }

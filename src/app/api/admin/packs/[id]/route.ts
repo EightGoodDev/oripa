@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit";
+import { resolveTenantId } from "@/lib/tenant/context";
 import { z } from "zod";
 
 const updatePackSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
   image: z.string().url().optional(),
-  category: z.enum(["sneaker", "card", "figure", "game", "other"]).optional(),
+  category: z.string().trim().min(1).optional(),
+  minRank: z.enum(["BEGINNER", "BRONZE", "SILVER", "GOLD", "PLATINUM", "DIAMOND", "VIP"]).optional(),
   pricePerDraw: z.coerce.number().int().min(1).optional(),
   totalStock: z.coerce.number().int().min(1).optional(),
   limitPerUser: z.coerce.number().int().min(1).nullable().optional(),
@@ -29,11 +31,12 @@ export async function GET(
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   const { id } = await params;
 
-  const pack = await prisma.oripaPack.findUnique({
-    where: { id },
+  const pack = await prisma.oripaPack.findFirst({
+    where: { id, tenantId },
     include: {
       packPrizes: {
         include: { prize: true },
@@ -60,8 +63,18 @@ export async function PUT(
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   const { id } = await params;
+  const existingPack = await prisma.oripaPack.findFirst({
+    where: { id, tenantId },
+    select: { id: true },
+  });
+
+  if (!existingPack) {
+    return NextResponse.json({ error: "パックが見つかりません" }, { status: 404 });
+  }
+
   const body = await req.json();
   const parsed = updatePackSchema.safeParse(body);
 
@@ -78,7 +91,26 @@ export async function PUT(
   if (data.title !== undefined) updateData.title = data.title;
   if (data.description !== undefined) updateData.description = data.description;
   if (data.image !== undefined) updateData.image = data.image;
-  if (data.category !== undefined) updateData.category = data.category;
+  if (data.category !== undefined) {
+    const category = await prisma.packCategory.findFirst({
+      where: {
+        tenantId,
+        name: data.category,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    if (!category) {
+      return NextResponse.json(
+        { error: { category: ["カテゴリが未登録です。先にカテゴリを作成してください。"] } },
+        { status: 400 },
+      );
+    }
+
+    updateData.category = data.category;
+  }
+  if (data.minRank !== undefined) updateData.minRank = data.minRank;
   if (data.pricePerDraw !== undefined) updateData.pricePerDraw = data.pricePerDraw;
   if (data.limitPerUser !== undefined) updateData.limitPerUser = data.limitPerUser;
   if (data.featured !== undefined) updateData.featured = data.featured;
@@ -91,8 +123,8 @@ export async function PUT(
     updateData.endsAt = data.endsAt ? new Date(data.endsAt) : null;
 
   if (data.totalStock !== undefined) {
-    const current = await prisma.oripaPack.findUnique({
-      where: { id },
+    const current = await prisma.oripaPack.findFirst({
+      where: { id, tenantId },
       select: { totalStock: true, remainingStock: true },
     });
     if (current) {
@@ -122,11 +154,12 @@ export async function DELETE(
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   const { id } = await params;
 
-  const pack = await prisma.oripaPack.findUnique({
-    where: { id },
+  const pack = await prisma.oripaPack.findFirst({
+    where: { id, tenantId },
     include: { _count: { select: { draws: true } } },
   });
 
@@ -134,9 +167,9 @@ export async function DELETE(
     return NextResponse.json({ error: "パックが見つかりません" }, { status: 404 });
   }
 
-  if (pack.status !== "DRAFT") {
+  if (pack.status !== "DRAFT" && pack.status !== "ENDED") {
     return NextResponse.json(
-      { error: "DRAFTステータスのパックのみ削除できます" },
+      { error: "DRAFTまたはENDEDステータスのパックのみ削除できます" },
       { status: 400 },
     );
   }

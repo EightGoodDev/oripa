@@ -45,7 +45,6 @@ export default function AdminUsersPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const fetchUsers = useCallback(async (s: string, role: string, rank: string) => {
-    setLoading(true);
     const params = new URLSearchParams();
     if (s) params.set("search", s);
     if (role) params.set("role", role);
@@ -59,14 +58,10 @@ export default function AdminUsersPage() {
     setLoading(false);
   }, []);
 
-  // Initial fetch
-  useEffect(() => {
-    fetchUsers("", "", "");
-  }, [fetchUsers]);
-
   // Debounced search
   useEffect(() => {
     debounceRef.current = setTimeout(() => {
+      setLoading(true);
       fetchUsers(search, roleFilter, rankFilter);
     }, 300);
     return () => clearTimeout(debounceRef.current);

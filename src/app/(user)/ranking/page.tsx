@@ -4,6 +4,7 @@ import Badge from "@/components/ui/Badge";
 import { formatRelativeTime } from "@/lib/utils/format";
 
 export const revalidate = 30;
+export const dynamic = "force-dynamic";
 
 export default async function RankingPage() {
   const entries = await getRecentWinners();

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { weightedDraw } from "@/lib/gacha/engine";
-import { calcRank } from "@/lib/utils/rank";
-import { Prisma } from "@prisma/client";
+import { resolveTenantId } from "@/lib/tenant/context";
+import { getRankIndex } from "@/lib/rewards/rank-settings";
+import { Prisma, UserRank } from "@prisma/client";
 
 const ALLOWED_COUNTS = [1, 10];
 
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = session?.user?.id ?? null;
+    const tenantId = await resolveTenantId();
 
     // 2-12. Everything inside a DB transaction with row locking
     const result = await prisma.$transaction(
@@ -41,12 +43,13 @@ export async function POST(req: NextRequest) {
             pricePerDraw: number;
             limitPerUser: number | null;
             status: string;
+            minRank: string;
             lastOnePrizeId: string | null;
           }[]
         >(
-          Prisma.sql`SELECT id, "remainingStock", "pricePerDraw", "limitPerUser", status, "lastOnePrizeId"
+          Prisma.sql`SELECT id, "remainingStock", "pricePerDraw", "limitPerUser", status, "minRank", "lastOnePrizeId"
            FROM "OripaPack"
-           WHERE id = ${packId}
+           WHERE id = ${packId} AND "tenantId" = ${tenantId}
            FOR UPDATE`,
         );
 
@@ -63,6 +66,7 @@ export async function POST(req: NextRequest) {
         if (!isTrial && userId && pack.limitPerUser) {
           const userDrawCount = await tx.draw.count({
             where: {
+              tenantId,
               userId,
               packId,
               isTrial: false,
@@ -82,11 +86,15 @@ export async function POST(req: NextRequest) {
         if (!isTrial && userId) {
           const user = await tx.user.findUniqueOrThrow({
             where: { id: userId },
-            select: { coins: true, totalSpent: true },
+            select: { coins: true, totalSpent: true, rank: true, firstDrawAt: true },
           });
 
           if (user.coins < totalCost) {
             throw new Error("コインが不足しています");
+          }
+
+          if (getRankIndex(user.rank) < getRankIndex(pack.minRank as UserRank)) {
+            throw new Error("このオリパは現在のランクでは利用できません");
           }
 
           const newTotalSpent = user.totalSpent + totalCost;
@@ -95,7 +103,7 @@ export async function POST(req: NextRequest) {
             data: {
               coins: { decrement: totalCost },
               totalSpent: newTotalSpent,
-              rank: calcRank(newTotalSpent),
+              ...(user.firstDrawAt ? {} : { firstDrawAt: new Date() }),
             },
             select: { coins: true },
           });
@@ -104,7 +112,7 @@ export async function POST(req: NextRequest) {
 
         // Get pack prizes for drawing
         const packPrizes = await tx.packPrize.findMany({
-          where: { packId },
+          where: { packId, tenantId },
           include: { prize: true },
         });
 
@@ -168,6 +176,7 @@ export async function POST(req: NextRequest) {
           // 10. Create Draw record
           const draw = await tx.draw.create({
             data: {
+              tenantId,
               userId: isTrial ? null : userId,
               packId,
               packPrizeId: selectedPackPrizeId,
@@ -181,6 +190,7 @@ export async function POST(req: NextRequest) {
           if (!isTrial && userId) {
             await tx.ownedItem.create({
               data: {
+                tenantId,
                 userId,
                 prizeId: selectedPP.prizeId,
                 drawId: draw.id,
@@ -190,6 +200,7 @@ export async function POST(req: NextRequest) {
             // Create CoinTransaction
             await tx.coinTransaction.create({
               data: {
+                tenantId,
                 userId,
                 amount: -pack.pricePerDraw,
                 balance: newBalance + pack.pricePerDraw * (count - 1 - i),

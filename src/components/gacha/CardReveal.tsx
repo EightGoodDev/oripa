@@ -119,7 +119,7 @@ export default function CardReveal({
         <div className="absolute inset-0 pointer-events-none z-20">
           {Array.from({ length: 12 }).map((_, i) => {
             const angle = (i / 12) * Math.PI * 2;
-            const distance = 100 + Math.random() * 50;
+            const distance = 100 + ((i * 37) % 50);
             return (
               <motion.div
                 key={i}

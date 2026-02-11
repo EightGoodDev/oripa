@@ -10,14 +10,17 @@ import Breadcrumb from "@/components/admin/Breadcrumb";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
+import ImageUploadField from "@/components/admin/ImageUploadField";
 import type { Rarity } from "@/types";
 
 const prizeSchema = z.object({
   name: z.string().min(1, "名前を入力してください"),
   description: z.string().optional().default(""),
   image: z.string().url("有効なURLを入力してください"),
+  genre: z.string().trim().min(1, "ジャンルを入力してください").max(40),
   rarity: z.enum(["N", "R", "SR", "SSR", "UR"]),
   marketPrice: z.coerce.number().int().min(0),
+  costPrice: z.coerce.number().int().min(0),
   coinValue: z.coerce.number().int().min(0),
 });
 
@@ -28,8 +31,10 @@ interface PrizeDetail {
   name: string;
   description: string;
   image: string;
+  genre: string;
   rarity: Rarity;
   marketPrice: number;
+  costPrice: number;
   coinValue: number;
   createdAt: string;
   updatedAt: string;
@@ -64,6 +69,7 @@ export default function PrizeDetailPage({
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<PrizeFormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,13 +78,15 @@ export default function PrizeDetailPage({
       name: "",
       description: "",
       image: "",
+      genre: "other",
       rarity: "N",
       marketPrice: 0,
+      costPrice: 0,
       coinValue: 0,
     },
   });
 
-  const imageUrl = watch("image");
+  const imageUrl = watch("image") ?? "";
 
   useEffect(() => {
     async function fetchPrize() {
@@ -94,8 +102,10 @@ export default function PrizeDetailPage({
           name: data.name,
           description: data.description,
           image: data.image,
+          genre: data.genre,
           rarity: data.rarity,
           marketPrice: data.marketPrice,
+          costPrice: data.costPrice,
           coinValue: data.coinValue,
         });
       } catch {
@@ -208,25 +218,16 @@ export default function PrizeDetailPage({
           />
         </FormField>
 
-        <FormField label="画像URL" error={errors.image?.message}>
-          <input
-            type="text"
-            {...register("image")}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gold-mid"
-            placeholder="https://..."
+        <FormField label="画像" error={errors.image?.message}>
+          <input type="hidden" {...register("image")} />
+          <ImageUploadField
+            value={imageUrl}
+            onChange={(url) =>
+              setValue("image", url, { shouldDirty: true, shouldValidate: true })
+            }
+            folder="prizes"
+            disabled={submitting}
           />
-          {imageUrl && /^https?:\/\/.+/.test(imageUrl) && (
-            <div className="mt-2">
-              <img
-                src={imageUrl}
-                alt="プレビュー"
-                className="w-32 h-32 object-cover rounded-lg border border-gray-700"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
-            </div>
-          )}
         </FormField>
 
         <FormField label="レアリティ" error={errors.rarity?.message}>
@@ -242,10 +243,29 @@ export default function PrizeDetailPage({
           </select>
         </FormField>
 
+        <FormField label="ジャンル" error={errors.genre?.message}>
+          <input
+            type="text"
+            {...register("genre")}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gold-mid"
+            placeholder="例: sneaker"
+          />
+        </FormField>
+
         <FormField label="市場価格（円）" error={errors.marketPrice?.message}>
           <input
             type="number"
             {...register("marketPrice")}
+            min={0}
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gold-mid"
+            placeholder="0"
+          />
+        </FormField>
+
+        <FormField label="原価（円）" error={errors.costPrice?.message}>
+          <input
+            type="number"
+            {...register("costPrice")}
             min={0}
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gold-mid"
             placeholder="0"

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireAdmin } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit";
+import { resolveTenantId } from "@/lib/tenant/context";
 import { z } from "zod";
 
 const updatePlanSchema = z.object({
@@ -24,8 +25,20 @@ export async function PUT(
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   const { id } = await params;
+  const existing = await prisma.chargePlan.findFirst({
+    where: { id, tenantId },
+    select: { id: true },
+  });
+  if (!existing) {
+    return NextResponse.json(
+      { error: "プランが見つかりません" },
+      { status: 404 },
+    );
+  }
+
   const body = await req.json();
   const parsed = updatePlanSchema.safeParse(body);
 
@@ -66,11 +79,12 @@ export async function DELETE(
   } catch (res) {
     return res as NextResponse;
   }
+  const tenantId = await resolveTenantId();
 
   const { id } = await params;
 
-  const plan = await prisma.chargePlan.findUnique({
-    where: { id },
+  const plan = await prisma.chargePlan.findFirst({
+    where: { id, tenantId },
     include: { _count: { select: { chargeOrders: true } } },
   });
 

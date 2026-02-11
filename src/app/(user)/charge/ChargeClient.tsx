@@ -25,19 +25,24 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
       return;
     }
 
-    // TODO: Stripe Checkout integration
-    // For now, redirect to Stripe checkout session
     try {
-      const res = await fetch("/api/coins/checkout", {
+      const res = await fetch("/api/coins/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId }),
+        body: JSON.stringify({ planId, paymentMethod: "CREDIT_CARD" }),
       });
       const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
+      if (!res.ok) {
         toast.error(data.error ?? "エラーが発生しました");
+        return;
+      }
+
+      if (typeof data.newBalance === "number") {
+        toast.success("チャージが完了しました");
+        router.refresh();
+      } else {
+        toast.success("処理を完了しました");
+        router.refresh();
       }
     } catch {
       toast.error("通信エラーが発生しました");
