@@ -110,7 +110,7 @@ export default function HomeClient({
             >
               {banners.map((banner) => {
                 const content = (
-                  <div key={banner.id} className="relative shrink-0 w-full aspect-[16/5]">
+                  <div key={banner.id} className="relative shrink-0 w-full aspect-[4/1]">
                     <Image
                       src={banner.imageUrl}
                       alt={banner.title ?? "banner"}

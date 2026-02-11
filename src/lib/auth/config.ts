@@ -88,8 +88,21 @@ export const authConfig: NextAuthConfig = {
           (user as { miles?: number }).miles ?? token.miles ?? 0;
       }
 
+      const nowEpochSec = Math.floor(Date.now() / 1000);
+      const lastRefreshed =
+        typeof token.profileRefreshedAt === "number"
+          ? token.profileRefreshedAt
+          : 0;
+      const shouldRefresh =
+        Boolean(user) ||
+        !token.role ||
+        !token.rank ||
+        typeof token.coins !== "number" ||
+        typeof token.miles !== "number" ||
+        nowEpochSec - lastRefreshed >= 300;
+
       // Keep sessions resilient even if DB is temporarily unavailable.
-      if (token.id) {
+      if (token.id && shouldRefresh) {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.id as string },
@@ -101,6 +114,7 @@ export const authConfig: NextAuthConfig = {
             token.coins = dbUser.coins;
             token.miles = dbUser.miles;
           }
+          token.profileRefreshedAt = nowEpochSec;
         } catch (error) {
           console.error("[auth][jwt] user refresh failed", error);
         }

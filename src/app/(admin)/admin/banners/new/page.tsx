@@ -76,9 +76,9 @@ export default function BannerCreatePage() {
           value={form.imageUrl}
           onChange={(url) => setForm((prev) => ({ ...prev, imageUrl: url }))}
           folder="packs"
-          recommendedSize="1600 x 500px（16:5）"
+          recommendedSize="2400 x 600px（4:1）"
           inputClassName={inputClass}
-          previewClassName="w-full max-w-[560px] aspect-[16/5]"
+          previewClassName="w-full max-w-[720px] aspect-[4/1]"
           previewObjectFit="contain"
         />
         <input

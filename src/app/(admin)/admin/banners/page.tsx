@@ -132,7 +132,7 @@ export default function BannersPage() {
             {rows.map((row) => (
               <div key={row.id} className="p-3 space-y-2">
                 <div className="text-xs text-gray-500">ID: {row.id}</div>
-                <div className="rounded-lg border border-gray-800 bg-gray-950/70 overflow-hidden aspect-[16/5]">
+                <div className="rounded-lg border border-gray-800 bg-gray-950/70 overflow-hidden aspect-[4/1]">
                   <img
                     src={row.imageUrl}
                     alt={row.title ?? "banner"}
@@ -218,7 +218,7 @@ export default function BannersPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
             {rows.map((row) => (
               <div key={row.id} className="rounded-xl border border-gray-800 bg-gray-950/60 overflow-hidden">
-                <div className="aspect-[16/5] bg-gray-900">
+                <div className="aspect-[4/1] bg-gray-900">
                   <img
                     src={row.imageUrl}
                     alt={row.title ?? "banner"}
