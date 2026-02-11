@@ -192,7 +192,7 @@ export default function HomeClient({
                 className="rounded-xl border p-2.5 space-y-2"
                 style={{
                   borderColor,
-                  backgroundColor: "#111827",
+                  backgroundColor,
                 }}
               >
                 {href ? (
