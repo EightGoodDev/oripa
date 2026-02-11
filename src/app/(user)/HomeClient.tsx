@@ -7,6 +7,7 @@ import type { PackListItem, HomeBannerItem, HomeEventItem } from "@/types";
 import { CATEGORY_LABELS, getCategoryLabel } from "@/types";
 import Tabs from "@/components/ui/Tabs";
 import OripaGrid from "@/components/oripa/OripaGrid";
+import OripaCard from "@/components/oripa/OripaCard";
 
 type SortKey = "recommended" | "newest" | "price-asc" | "price-desc";
 const DEFAULT_CATEGORY_ORDER = ["sneaker", "card", "figure", "game", "other"];
@@ -184,18 +185,58 @@ export default function HomeClient({
             const borderColor = event.borderColor || "#f59e0b";
             const textColor = event.textColor || "#fff7ed";
             const hasImage = Boolean(event.imageUrl);
-            const isImageType = event.displayType === "IMAGE";
 
-            const hero = (
+            return (
               <div
-                className="relative rounded-lg overflow-hidden border aspect-[16/6]"
+                key={event.id}
+                className="rounded-xl border p-2.5 space-y-2"
                 style={{
                   borderColor,
-                  backgroundColor,
+                  backgroundColor: "#111827",
                 }}
               >
-                {isImageType && hasImage && (
-                  <>
+                {href ? (
+                  <Link href={href} className="block">
+                    {hasImage ? (
+                      <div
+                        className="relative rounded-lg overflow-hidden border aspect-[4/1]"
+                        style={{ borderColor, backgroundColor }}
+                      >
+                        <Image
+                          src={event.imageUrl!}
+                          alt={event.title}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, 760px"
+                        />
+                        <div className="absolute inset-0 bg-black/35" />
+                        <div className="absolute inset-0 px-3 flex flex-col items-center justify-center text-center">
+                          <h2 className="text-sm md:text-base font-bold" style={{ color: textColor }}>
+                            {event.title}
+                          </h2>
+                          {event.subtitle && (
+                            <p className="text-[11px] mt-0.5 opacity-90" style={{ color: textColor }}>
+                              {event.subtitle}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="h-9 rounded-lg border px-3 flex items-center justify-center text-center"
+                        style={{ borderColor, backgroundColor }}
+                      >
+                        <h2 className="text-xs font-bold truncate" style={{ color: textColor }}>
+                          {event.title}
+                        </h2>
+                      </div>
+                    )}
+                  </Link>
+                ) : hasImage ? (
+                  <div
+                    className="relative rounded-lg overflow-hidden border aspect-[4/1]"
+                    style={{ borderColor, backgroundColor }}
+                  >
                     <Image
                       src={event.imageUrl!}
                       alt={event.title}
@@ -203,71 +244,38 @@ export default function HomeClient({
                       className="object-cover"
                       sizes="(max-width: 768px) 100vw, 760px"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/20" />
-                  </>
+                    <div className="absolute inset-0 bg-black/35" />
+                    <div className="absolute inset-0 px-3 flex flex-col items-center justify-center text-center">
+                      <h2 className="text-sm md:text-base font-bold" style={{ color: textColor }}>
+                        {event.title}
+                      </h2>
+                      {event.subtitle && (
+                        <p className="text-[11px] mt-0.5 opacity-90" style={{ color: textColor }}>
+                          {event.subtitle}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="h-9 rounded-lg border px-3 flex items-center justify-center text-center"
+                    style={{ borderColor, backgroundColor }}
+                  >
+                    <h2 className="text-xs font-bold truncate" style={{ color: textColor }}>
+                      {event.title}
+                    </h2>
+                  </div>
                 )}
 
-                {!isImageType && hasImage && (
-                  <>
-                    <Image
-                      src={event.imageUrl!}
-                      alt={event.title}
-                      fill
-                      className="object-cover opacity-20"
-                      sizes="(max-width: 768px) 100vw, 760px"
-                    />
-                    <div className="absolute inset-0 bg-black/30" />
-                  </>
+                {event.packs.length > 0 ? (
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                    {event.packs.map((pack) => (
+                      <OripaCard key={pack.id} pack={pack} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 px-1 py-1">対象パックはありません</p>
                 )}
-
-                <div className="absolute inset-0 p-3 flex flex-col justify-center items-center text-center">
-                  <p
-                    className="text-[11px] font-bold tracking-wide opacity-90"
-                    style={{ color: textColor }}
-                  >
-                    {event.displayType === "TEXT_FRAME" ? "EVENT FRAME" : "EVENT"}
-                  </p>
-                  <h2
-                    className="text-sm md:text-base font-bold mt-1"
-                    style={{ color: textColor }}
-                  >
-                    {event.title}
-                  </h2>
-                  {event.subtitle && (
-                    <p className="text-xs mt-0.5 opacity-90" style={{ color: textColor }}>
-                      {event.subtitle}
-                    </p>
-                  )}
-                </div>
-              </div>
-            );
-
-            return (
-              <div
-                key={event.id}
-                className="rounded-xl border p-3"
-                style={{
-                  borderColor,
-                  background:
-                    event.displayType === "TEXT_FRAME"
-                      ? backgroundColor
-                      : "linear-gradient(to right, rgba(234,179,8,.2), rgba(249,115,22,.15), rgba(239,68,68,.2))",
-                }}
-              >
-                {href ? <Link href={href}>{hero}</Link> : hero}
-
-                <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                  {event.packs.map((pack) => (
-                    <Link
-                      key={pack.id}
-                      href={`/oripa/${pack.id}`}
-                      className="shrink-0 min-w-40 rounded-lg border border-gray-700 bg-gray-900/80 p-2"
-                    >
-                      <p className="text-xs text-white truncate">{pack.title}</p>
-                      <p className="text-[11px] text-yellow-300 mt-1">{pack.pricePerDraw.toLocaleString()}コイン</p>
-                    </Link>
-                  ))}
-                </div>
               </div>
             );
           })}
