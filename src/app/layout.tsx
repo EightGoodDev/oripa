@@ -25,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body
-        className={`${notoSansJP.variable} font-sans bg-black text-white antialiased`}
+        className={`${notoSansJP.variable} font-sans bg-slate-900 text-white antialiased`}
       >
         <Toaster theme="dark" position="top-right" richColors />
         <SessionProvider>

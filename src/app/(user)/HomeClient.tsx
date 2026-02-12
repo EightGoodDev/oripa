@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import type { PackListItem, HomeBannerItem, HomeEventItem } from "@/types";
@@ -109,6 +109,7 @@ export default function HomeClient({
   const [sort, setSort] = useState<SortKey>("recommended");
   const [activeBanner, setActiveBanner] = useState(0);
   const [pauseBanner, setPauseBanner] = useState(false);
+  const bannerTouchStartX = useRef<number | null>(null);
 
   useEffect(() => {
     if (banners.length <= 1 || pauseBanner) return;
@@ -185,6 +186,35 @@ export default function HomeClient({
     return result;
   }, [packs, activeCategory, sort]);
 
+  const handleBannerTouchStart = (
+    event: React.TouchEvent<HTMLElement>,
+  ) => {
+    if (banners.length <= 1) return;
+    setPauseBanner(true);
+    bannerTouchStartX.current = event.touches[0]?.clientX ?? null;
+  };
+
+  const handleBannerTouchEnd = (event: React.TouchEvent<HTMLElement>) => {
+    setPauseBanner(false);
+    if (banners.length <= 1 || bannerTouchStartX.current === null) return;
+
+    const endX = event.changedTouches[0]?.clientX ?? null;
+    if (endX === null) {
+      bannerTouchStartX.current = null;
+      return;
+    }
+
+    const deltaX = endX - bannerTouchStartX.current;
+    bannerTouchStartX.current = null;
+
+    if (Math.abs(deltaX) < 40) return;
+    if (deltaX > 0) {
+      setActiveBanner((prev) => (prev === 0 ? banners.length - 1 : prev - 1));
+      return;
+    }
+    setActiveBanner((prev) => (prev + 1) % banners.length);
+  };
+
   return (
     <div className="pt-2 pb-4 space-y-3">
       {banners.length > 0 && (
@@ -192,8 +222,8 @@ export default function HomeClient({
           className="px-4"
           onMouseEnter={() => setPauseBanner(true)}
           onMouseLeave={() => setPauseBanner(false)}
-          onTouchStart={() => setPauseBanner(true)}
-          onTouchEnd={() => setPauseBanner(false)}
+          onTouchStart={handleBannerTouchStart}
+          onTouchEnd={handleBannerTouchEnd}
         >
           <div className="relative overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
             <div
@@ -227,28 +257,6 @@ export default function HomeClient({
 
             {banners.length > 1 && (
               <>
-                <button
-                  type="button"
-                  aria-label="前へ"
-                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white"
-                  onClick={() =>
-                    setActiveBanner((prev) =>
-                      prev === 0 ? banners.length - 1 : prev - 1,
-                    )
-                  }
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  aria-label="次へ"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white"
-                  onClick={() =>
-                    setActiveBanner((prev) => (prev + 1) % banners.length)
-                  }
-                >
-                  ›
-                </button>
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
                   {banners.map((banner, index) => (
                     <button
