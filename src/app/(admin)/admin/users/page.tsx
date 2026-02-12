@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import DataTable, { Column } from "@/components/admin/DataTable";
 import { formatCoins, formatDate } from "@/lib/utils/format";
 import { RANK_LABELS, RANK_COLORS } from "@/lib/utils/rank";
@@ -37,6 +38,7 @@ const inputClass =
 
 export default function AdminUsersPage() {
   const router = useRouter();
+  const { data: sessionData } = useSession();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -141,6 +143,15 @@ export default function AdminUsersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">ユーザー管理</h1>
+        {sessionData?.user?.id ? (
+          <button
+            type="button"
+            onClick={() => router.push(`/admin/users/${sessionData.user.id}`)}
+            className="px-3 py-2 rounded-lg border border-gray-700 bg-gray-800 text-sm text-white hover:bg-gray-700 transition-colors"
+          >
+            自分のアカウント
+          </button>
+        ) : null}
       </div>
 
       {/* Filters */}
