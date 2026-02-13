@@ -264,7 +264,7 @@ export default function NewPackPage() {
               <option value="GOLD">ゴールド以上</option>
               <option value="PLATINUM">プラチナ以上</option>
               <option value="DIAMOND">ダイヤモンド以上</option>
-              <option value="VIP">VIP限定</option>
+              <option value="VIP">???（シークレット）限定</option>
             </select>
           </FormField>
           <FormField label="1回あたりの価格(コイン)" error={errors.pricePerDraw?.message}>

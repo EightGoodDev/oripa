@@ -24,7 +24,7 @@ export const RANK_LABELS: Record<UserRank, string> = {
   GOLD: "ゴールド",
   PLATINUM: "プラチナ",
   DIAMOND: "ダイヤモンド",
-  VIP: "VIP",
+  VIP: "???（シークレット）",
 };
 
 export const RANK_COLORS: Record<UserRank, string> = {
