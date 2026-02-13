@@ -1,16 +1,47 @@
 import DashboardDrawsChart from "@/components/admin/DashboardDrawsChart";
+import SetupGuideCard from "@/components/admin/SetupGuideCard";
 import StatCard from "@/components/admin/StatCard";
 import { getAdminDashboardStats } from "@/lib/admin/stats";
-import { resolveTenantId } from "@/lib/tenant/context";
+import { getAdminSetupStatus } from "@/lib/admin/setup";
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { formatCoins, formatPrice } from "@/lib/utils/format";
+import Link from "next/link";
 
 export default async function DashboardPage() {
-  const tenantId = await resolveTenantId();
-  const stats = await getAdminDashboardStats(tenantId);
+  const session = await auth();
+  const tenantId = session?.user?.tenantId;
+  if (!tenantId) {
+    redirect("/admin/login");
+  }
+  const [stats, setup] = await Promise.all([
+    getAdminDashboardStats(tenantId),
+    getAdminSetupStatus(tenantId),
+  ]);
 
   return (
-    <div>
+    <div className="space-y-6">
       <h1 className="text-2xl font-bold mb-6">ダッシュボード</h1>
+
+      <SetupGuideCard status={setup} compact />
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href="/admin/get-started"
+          prefetch={false}
+          className="text-sm rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-white hover:bg-gray-800 transition-colors"
+        >
+          初期セットアップ画面を開く
+        </Link>
+        {setup.nextStep ? (
+          <Link
+            href={setup.nextStep.href}
+            prefetch={false}
+            className="text-sm rounded-lg border border-gold-mid/40 bg-gold-mid/10 px-3 py-2 text-gold-mid hover:text-gold-end transition-colors"
+          >
+            次の手順: {setup.nextStep.title}
+          </Link>
+        ) : null}
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <StatCard

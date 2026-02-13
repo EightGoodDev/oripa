@@ -7,12 +7,14 @@ import { cn } from "@/lib/utils/cn";
 
 const navItems = [
   { href: "/admin/dashboard", label: "ダッシュボード", icon: "📊" },
+  { href: "/admin/get-started", label: "初期セットアップ", icon: "🚀" },
   { href: "/admin/packs", label: "パック管理", icon: "🎴" },
   { href: "/admin/categories", label: "カテゴリ管理", icon: "🗂️" },
   { href: "/admin/prizes", label: "景品管理", icon: "🎁" },
   { href: "/admin/banners", label: "バナー管理", icon: "🖼️" },
   { href: "/admin/events", label: "イベント管理", icon: "🎉" },
   { href: "/admin/mile-rewards", label: "マイル交換景品", icon: "🎯" },
+  { href: "/admin/site-settings", label: "サイト設定", icon: "🏢" },
   { href: "/admin/rank-settings", label: "ランク設定", icon: "🏅" },
   { href: "/admin/config-versions", label: "設定履歴", icon: "🕘" },
   { href: "/admin/users", label: "ユーザー管理", icon: "👤" },
