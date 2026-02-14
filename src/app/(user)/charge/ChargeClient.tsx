@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import {
+  EmbeddedCheckout,
+  EmbeddedCheckoutProvider,
+} from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 import Button from "@/components/ui/Button";
 import { formatCoins, formatPrice } from "@/lib/utils/format";
 
@@ -22,7 +27,25 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
+  const [stripePromise, setStripePromise] = useState<
+    ReturnType<typeof loadStripe> | null
+  >(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
   const handledStatusRef = useRef<string | null>(null);
+  const checkoutOptions = useMemo(
+    () =>
+      clientSecret
+        ? {
+            clientSecret,
+            onComplete: () => {
+              toast.success("決済完了を確認しました。残高を更新します。");
+              setClientSecret(null);
+              router.refresh();
+            },
+          }
+        : null,
+    [clientSecret, router],
+  );
 
   useEffect(() => {
     const status = searchParams.get("status");
@@ -31,6 +54,7 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
     handledStatusRef.current = status;
     if (status === "success") {
       toast.success("決済完了を確認しました。残高反映まで数秒かかる場合があります。");
+      setClientSecret(null);
       router.refresh();
       return;
     }
@@ -58,12 +82,22 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
         return;
       }
 
-      if (!data.checkoutUrl) {
-        toast.error("決済ページの生成に失敗しました");
+      if (data.clientSecret && data.publishableKey) {
+        setStripePromise(loadStripe(data.publishableKey as string));
+        setClientSecret(data.clientSecret as string);
         return;
       }
 
-      window.location.assign(data.checkoutUrl as string);
+      if (data.checkoutUrl) {
+        // Backward-compatible fallback
+        window.location.assign(data.checkoutUrl as string);
+        return;
+      }
+
+      if (!data.checkoutUrl && !data.clientSecret) {
+        toast.error("決済ページの生成に失敗しました");
+        return;
+      }
     } catch {
       toast.error("通信エラーが発生しました");
     } finally {
@@ -123,6 +157,29 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
           </div>
         ))}
       </div>
+
+      {stripePromise && checkoutOptions ? (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm p-4 overflow-auto">
+          <div className="max-w-3xl mx-auto mt-10 bg-gray-950 border border-gray-800 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold text-white">お支払い</h2>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setClientSecret(null)}
+              >
+                閉じる
+              </Button>
+            </div>
+            <EmbeddedCheckoutProvider
+              stripe={stripePromise}
+              options={checkoutOptions}
+            >
+              <EmbeddedCheckout />
+            </EmbeddedCheckoutProvider>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

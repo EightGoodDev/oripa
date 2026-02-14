@@ -43,6 +43,14 @@ export async function POST(req: NextRequest) {
   const planId = parsed.data.planId;
 
   try {
+    const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY;
+    if (!publishableKey) {
+      return NextResponse.json(
+        { error: "STRIPE_PUBLISHABLE_KEY is not configured" },
+        { status: 500 },
+      );
+    }
+
     const [user, plan, completedChargeCount] = await Promise.all([
       prisma.user.findFirst({
         where: { id: userId, tenantId },
@@ -96,8 +104,9 @@ export async function POST(req: NextRequest) {
 
     const sessionResult = await stripe.checkout.sessions.create({
       mode: "payment",
-      success_url: `${baseUrl}/charge?status=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/charge?status=cancel`,
+      ui_mode: "embedded",
+      return_url: `${baseUrl}/charge?status=success&session_id={CHECKOUT_SESSION_ID}`,
+      redirect_on_completion: "if_required",
       customer_email: user.email ?? undefined,
       payment_method_types: ["card"],
       locale: "ja",
@@ -133,15 +142,27 @@ export async function POST(req: NextRequest) {
     });
 
     if (!sessionResult.url) {
+      if (!sessionResult.client_secret) {
+        return NextResponse.json(
+          { error: "Stripe Embedded Checkoutの初期化に失敗しました" },
+          { status: 500 },
+        );
+      }
+
       return NextResponse.json(
-        { error: "Stripe Checkout URLの生成に失敗しました" },
-        { status: 500 },
+        {
+          sessionId: sessionResult.id,
+          clientSecret: sessionResult.client_secret,
+          publishableKey,
+        },
       );
     }
 
     return NextResponse.json({
       checkoutUrl: sessionResult.url,
       sessionId: sessionResult.id,
+      clientSecret: sessionResult.client_secret,
+      publishableKey,
     });
   } catch (error) {
     console.error("[stripe][checkout] create failed", error);
