@@ -125,7 +125,6 @@ function PaymentElementForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <PaymentElement options={paymentElementOptions} />
       <div className="space-y-1">
         <label
           htmlFor="cardholderName"
@@ -164,6 +163,7 @@ function PaymentElementForm({
           <option value="SG">シンガポール</option>
         </select>
       </div>
+      <PaymentElement options={paymentElementOptions} />
       {errorMessage ? (
         <p className="text-xs text-red-400 bg-red-950/40 border border-red-900 rounded-md px-3 py-2">
           {errorMessage}
