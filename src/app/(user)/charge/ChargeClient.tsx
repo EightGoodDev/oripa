@@ -37,6 +37,8 @@ interface PaymentResultNotice {
   paymentIntentId?: string;
   newBalance?: number;
   chargedCoins?: number;
+  grantedMiles?: number;
+  newMiles?: number;
 }
 
 function PaymentElementForm({
@@ -190,10 +192,12 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
         setPaymentResult({
           kind: "success",
           title: "チャージが完了しました",
-          description: "コイン残高への反映が完了しています。",
+          description: "コイン・マイル残高への反映が完了しています。",
           paymentIntentId,
           newBalance: data.result.newBalance,
           chargedCoins: data.result.chargedCoins,
+          grantedMiles: data.result.grantedMiles,
+          newMiles: data.result.newMiles,
         });
         toast.success("チャージ完了");
       } else {
@@ -363,9 +367,19 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
               追加コイン: +{formatCoins(paymentResult.chargedCoins)}
             </p>
           ) : null}
+          {typeof paymentResult.grantedMiles === "number" ? (
+            <p className="text-xs text-emerald-300 mt-1">
+              追加マイル: +{formatCoins(paymentResult.grantedMiles)}
+            </p>
+          ) : null}
           {typeof paymentResult.newBalance === "number" ? (
             <p className="text-xs text-gold-end mt-1">
               現在残高: 🪙 {formatCoins(paymentResult.newBalance)}
+            </p>
+          ) : null}
+          {typeof paymentResult.newMiles === "number" ? (
+            <p className="text-xs text-sky-300 mt-1">
+              現在マイル: 🟢 {formatCoins(paymentResult.newMiles)}
             </p>
           ) : null}
           <div className="mt-3 flex items-center gap-2">
@@ -394,9 +408,14 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
       {session?.user && (
         <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 mb-6">
           <p className="text-xs text-gray-400">現在の残高</p>
-          <p className="text-2xl font-bold text-yellow-400 mt-1">
-            🪙 {formatCoins(session.user.coins ?? 0)}
-          </p>
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <p className="text-2xl font-bold text-yellow-400">
+              🪙 {formatCoins(session.user.coins ?? 0)}
+            </p>
+            <p className="text-2xl font-bold text-sky-300">
+              🟢 {formatCoins(session.user.miles ?? 0)}
+            </p>
+          </div>
         </div>
       )}
 
