@@ -19,6 +19,7 @@ const navItems = [
   { href: "/admin/config-versions", label: "設定履歴", icon: "🕘" },
   { href: "/admin/users", label: "ユーザー管理", icon: "👤" },
   { href: "/admin/plans", label: "プラン管理", icon: "💰" },
+  { href: "/admin/payments", label: "決済履歴", icon: "💳" },
 ];
 
 export default function AdminSidebar() {
