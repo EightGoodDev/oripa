@@ -91,7 +91,7 @@ export const authConfig: NextAuthConfig = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       const currentTenantId = await resolveTenantId();
 
       if (user) {
@@ -115,6 +115,7 @@ export const authConfig: NextAuthConfig = {
           ? token.profileRefreshedAt
           : 0;
       const shouldRefresh =
+        trigger === "update" ||
         Boolean(user) ||
         !token.role ||
         !token.rank ||

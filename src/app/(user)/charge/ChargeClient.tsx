@@ -13,6 +13,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import type { Appearance, StripeElementsOptions } from "@stripe/stripe-js";
 import { toast } from "sonner";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import { formatCoins, formatPrice } from "@/lib/utils/format";
 
 interface ChargePlan {
@@ -28,6 +29,7 @@ interface PaymentFormProps {
   onClose: () => void;
   onCompleted: (paymentIntentId?: string) => Promise<void> | void;
   defaultCardholderName?: string;
+  chargeOrderId?: string;
 }
 
 interface PaymentResultNotice {
@@ -45,6 +47,7 @@ function PaymentElementForm({
   onClose,
   onCompleted,
   defaultCardholderName,
+  chargeOrderId,
 }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
@@ -70,7 +73,11 @@ function PaymentElementForm({
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: `${window.location.origin}/charge?status=success`,
+          return_url: `${window.location.origin}/charge?status=success${
+            chargeOrderId
+              ? `&charge_order_id=${encodeURIComponent(chargeOrderId)}`
+              : ""
+          }`,
           payment_method_data: {
             billing_details: {
               name: normalizedName,
@@ -104,6 +111,7 @@ function PaymentElementForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
+      <PaymentElement />
       <div className="space-y-1">
         <label
           htmlFor="cardholderName"
@@ -121,7 +129,6 @@ function PaymentElementForm({
           className="w-full h-10 px-3 rounded-lg border border-slate-600 bg-slate-900 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-gold-end"
         />
       </div>
-      <PaymentElement />
       {errorMessage ? (
         <p className="text-xs text-red-400 bg-red-950/40 border border-red-900 rounded-md px-3 py-2">
           {errorMessage}
@@ -152,6 +159,8 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
   const handledStatusRef = useRef<string | null>(null);
   const finalizedPaymentRef = useRef<string | null>(null);
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isResultModalOpen, setIsResultModalOpen] = useState(false);
+  const [lastChargeOrderId, setLastChargeOrderId] = useState<string | null>(null);
   const [paymentResult, setPaymentResult] = useState<PaymentResultNotice | null>(
     null,
   );
@@ -161,27 +170,42 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
     setSelectedPlan(null);
   };
 
-  const finalizePayment = async (paymentIntentId?: string) => {
-    if (!paymentIntentId) {
+  const showPaymentResult = (result: PaymentResultNotice) => {
+    setPaymentResult(result);
+    setIsResultModalOpen(true);
+  };
+
+  const finalizePayment = async (
+    paymentIntentId?: string,
+    chargeOrderId?: string,
+  ) => {
+    const targetChargeOrderId = chargeOrderId ?? lastChargeOrderId ?? undefined;
+    const requestKey = paymentIntentId ?? targetChargeOrderId;
+    if (!requestKey) {
       setPaymentResult({
         kind: "pending",
         title: "決済完了を確認中です",
         description: "残高反映まで数秒かかる場合があります。しばらく待って更新してください。",
       });
+      setIsResultModalOpen(true);
       await update();
       router.refresh();
       return;
     }
 
-    if (finalizedPaymentRef.current === paymentIntentId) return;
-    finalizedPaymentRef.current = paymentIntentId;
+    if (finalizedPaymentRef.current === requestKey) return;
+    finalizedPaymentRef.current = requestKey;
     setIsFinalizing(true);
 
     try {
       const res = await fetch("/api/stripe/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentIntentId }),
+        body: JSON.stringify(
+          paymentIntentId
+            ? { paymentIntentId }
+            : { chargeOrderId: targetChargeOrderId },
+        ),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -189,28 +213,29 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
       }
 
       if (data.status === "succeeded" && data.result) {
-        setPaymentResult({
+        showPaymentResult({
           kind: "success",
           title: "チャージが完了しました",
           description: "コイン・マイル残高への反映が完了しています。",
-          paymentIntentId,
+          paymentIntentId: data.paymentIntentId ?? paymentIntentId,
           newBalance: data.result.newBalance,
           chargedCoins: data.result.chargedCoins,
           grantedMiles: data.result.grantedMiles,
           newMiles: data.result.newMiles,
         });
+        setLastChargeOrderId(null);
         toast.success("チャージ完了");
       } else {
-        setPaymentResult({
+        showPaymentResult({
           kind: "pending",
           title: "決済は完了、反映待ちです",
           description: "Webhook反映待ちです。数秒後に再確認してください。",
-          paymentIntentId,
+          paymentIntentId: data.paymentIntentId ?? paymentIntentId,
         });
         finalizedPaymentRef.current = null;
       }
     } catch (error) {
-      setPaymentResult({
+      showPaymentResult({
         kind: "error",
         title: "決済反映の確認に失敗しました",
         description:
@@ -295,12 +320,13 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
   useEffect(() => {
     const status = searchParams.get("status");
     const paymentIntentId = searchParams.get("payment_intent") ?? undefined;
+    const chargeOrderId = searchParams.get("charge_order_id") ?? undefined;
     if (!status || handledStatusRef.current === status) return;
 
     handledStatusRef.current = status;
     if (status === "success") {
       closeCheckout();
-      void finalizePayment(paymentIntentId);
+      void finalizePayment(paymentIntentId, chargeOrderId);
       return;
     }
     if (status === "cancel") {
@@ -317,6 +343,7 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
     setLoadingPlanId(plan.id);
     setSelectedPlan(plan);
     setPaymentResult(null);
+    setIsResultModalOpen(false);
     try {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
@@ -333,6 +360,9 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
       if (data.clientSecret && data.publishableKey) {
         setStripePromise(loadStripe(data.publishableKey as string));
         setClientSecret(data.clientSecret as string);
+        setLastChargeOrderId(
+          typeof data.chargeOrderId === "string" ? data.chargeOrderId : null,
+        );
         return;
       }
 
@@ -349,71 +379,102 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
   return (
     <div className="pt-4 pb-4 px-4">
       <h1 className="text-lg font-bold text-white mb-2">コインチャージ</h1>
+      <Modal
+        isOpen={isResultModalOpen && !!paymentResult}
+        onClose={() => setIsResultModalOpen(false)}
+        className="max-w-lg"
+      >
+        {paymentResult ? (
+          <div
+            className={`rounded-2xl border p-5 ${
+              paymentResult.kind === "success"
+                ? "border-emerald-500/50 bg-gradient-to-b from-emerald-950/80 to-slate-900"
+                : paymentResult.kind === "pending"
+                  ? "border-amber-500/50 bg-gradient-to-b from-amber-950/80 to-slate-900"
+                  : "border-red-500/50 bg-gradient-to-b from-red-950/80 to-slate-900"
+            }`}
+          >
+            <p className="text-lg font-bold text-white">{paymentResult.title}</p>
+            <p className="text-sm text-slate-300 mt-1">{paymentResult.description}</p>
 
-      {paymentResult ? (
-        <div
-          className={`mb-4 rounded-xl border p-4 ${
-            paymentResult.kind === "success"
-              ? "border-emerald-600/40 bg-emerald-950/30"
-              : paymentResult.kind === "pending"
-                ? "border-amber-600/40 bg-amber-950/30"
-                : "border-red-600/40 bg-red-950/30"
-          }`}
-        >
-          <p className="text-sm font-bold text-white">{paymentResult.title}</p>
-          <p className="text-xs text-slate-300 mt-1">{paymentResult.description}</p>
-          {typeof paymentResult.chargedCoins === "number" ? (
-            <p className="text-xs text-emerald-300 mt-2">
-              追加コイン: +{formatCoins(paymentResult.chargedCoins)}
-            </p>
-          ) : null}
-          {typeof paymentResult.grantedMiles === "number" ? (
-            <p className="text-xs text-emerald-300 mt-1">
-              追加マイル: +{formatCoins(paymentResult.grantedMiles)}
-            </p>
-          ) : null}
-          {typeof paymentResult.newBalance === "number" ? (
-            <p className="text-xs text-gold-end mt-1">
-              現在残高: 🪙 {formatCoins(paymentResult.newBalance)}
-            </p>
-          ) : null}
-          {typeof paymentResult.newMiles === "number" ? (
-            <p className="text-xs text-sky-300 mt-1">
-              現在マイル: 🟢 {formatCoins(paymentResult.newMiles)}
-            </p>
-          ) : null}
-          <div className="mt-3 flex items-center gap-2">
-            {paymentResult.paymentIntentId ? (
+            {paymentResult.kind === "success" ? (
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-emerald-700/50 bg-emerald-900/30 p-3">
+                  <p className="text-[11px] text-emerald-200">追加コイン</p>
+                  <p className="text-xl font-bold text-yellow-300 mt-1">
+                    +{formatCoins(paymentResult.chargedCoins ?? 0)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-sky-700/50 bg-sky-900/30 p-3">
+                  <p className="text-[11px] text-sky-200">追加マイル</p>
+                  <p className="text-xl font-bold text-sky-300 mt-1">
+                    +{formatCoins(paymentResult.grantedMiles ?? 0)}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-4 rounded-xl border border-slate-700 bg-slate-900/80 p-3 space-y-1">
+              <p className="text-xs text-slate-400">現在の残高</p>
+              <p className="text-base font-semibold text-yellow-300">
+                🪙 {formatCoins(paymentResult.newBalance ?? session?.user?.coins ?? 0)}
+              </p>
+              <p className="text-base font-semibold text-sky-300">
+                🟢 {formatCoins(paymentResult.newMiles ?? session?.user?.miles ?? 0)}
+              </p>
+            </div>
+
+            <div className="mt-4 flex items-center justify-end gap-2">
               <Button
                 size="sm"
+                variant="ghost"
                 type="button"
-                onClick={() => void finalizePayment(paymentResult.paymentIntentId)}
-                disabled={isFinalizing}
+                onClick={() => setIsResultModalOpen(false)}
               >
-                {isFinalizing ? "確認中..." : "反映を再確認"}
+                閉じる
               </Button>
-            ) : null}
-            <Button
-              size="sm"
-              variant="ghost"
-              type="button"
-              onClick={() => setPaymentResult(null)}
-            >
-              閉じる
-            </Button>
+              {paymentResult.kind !== "success" &&
+              (paymentResult.paymentIntentId || lastChargeOrderId) ? (
+                <Button
+                  size="sm"
+                  type="button"
+                  onClick={() =>
+                    void finalizePayment(
+                      paymentResult.paymentIntentId,
+                      lastChargeOrderId ?? undefined,
+                    )
+                  }
+                  disabled={isFinalizing}
+                >
+                  {isFinalizing ? "確認中..." : "反映を再確認"}
+                </Button>
+              ) : null}
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </Modal>
 
       {session?.user && (
         <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 mb-6">
           <p className="text-xs text-gray-400">現在の残高</p>
           <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
             <p className="text-2xl font-bold text-yellow-400">
-              🪙 {formatCoins(session.user.coins ?? 0)}
+              🪙{" "}
+              {formatCoins(
+                paymentResult?.kind === "success" &&
+                  typeof paymentResult.newBalance === "number"
+                  ? paymentResult.newBalance
+                  : (session.user.coins ?? 0),
+              )}
             </p>
             <p className="text-2xl font-bold text-sky-300">
-              🟢 {formatCoins(session.user.miles ?? 0)}
+              🟢{" "}
+              {formatCoins(
+                paymentResult?.kind === "success" &&
+                  typeof paymentResult.newMiles === "number"
+                  ? paymentResult.newMiles
+                  : (session.user.miles ?? 0),
+              )}
             </p>
           </div>
         </div>
@@ -513,6 +574,7 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
                       onClose={closeCheckout}
                       onCompleted={handlePaymentCompleted}
                       defaultCardholderName={session?.user?.name ?? ""}
+                      chargeOrderId={lastChargeOrderId ?? undefined}
                     />
                   </Elements>
                 </div>
