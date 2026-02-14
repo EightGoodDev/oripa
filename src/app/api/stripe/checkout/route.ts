@@ -10,20 +10,6 @@ const checkoutSchema = z.object({
   planId: z.string().min(1),
 });
 
-function resolveBaseUrl(req: NextRequest) {
-  const origin = req.headers.get("origin");
-  if (origin) return origin.replace(/\/$/, "");
-
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
-  const proto = req.headers.get("x-forwarded-proto") ?? "https";
-  if (host) return `${proto}://${host}`;
-
-  return (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(
-    /\/$/,
-    "",
-  );
-}
-
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -83,7 +69,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const baseUrl = resolveBaseUrl(req);
     const stripe = getStripeServerClient();
 
     const pendingOrder = await prisma.chargeOrder.create({
@@ -97,72 +82,43 @@ export async function POST(req: NextRequest) {
         status: "PENDING",
         paymentMethod: "CREDIT_CARD",
         metadata: {
-          source: "stripe_checkout",
+          source: "stripe_payment_intent",
         } as Prisma.InputJsonValue,
       },
     });
 
-    const sessionResult = await stripe.checkout.sessions.create({
-      mode: "payment",
-      ui_mode: "embedded",
-      return_url: `${baseUrl}/charge?status=success&session_id={CHECKOUT_SESSION_ID}`,
-      redirect_on_completion: "if_required",
-      customer_email: user.email ?? undefined,
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: plan.price,
+      currency: "jpy",
       payment_method_types: ["card"],
-      locale: "ja",
+      receipt_email: user.email ?? undefined,
+      description: `${plan.coins.toLocaleString()}コインチャージ`,
       metadata: {
         tenantId,
         userId,
         planId: plan.id,
         chargeOrderId: pendingOrder.id,
       },
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: "jpy",
-            unit_amount: plan.price,
-            product_data: {
-              name: `${plan.coins.toLocaleString()}コインチャージ`,
-              description:
-                plan.bonus > 0
-                  ? `ボーナス +${plan.bonus.toLocaleString()}コイン`
-                  : undefined,
-            },
-          },
-        },
-      ],
     });
 
     await prisma.chargeOrder.update({
       where: { id: pendingOrder.id },
       data: {
-        stripeSessionId: sessionResult.id,
+        stripePaymentId: paymentIntent.id,
       },
     });
 
-    if (!sessionResult.url) {
-      if (!sessionResult.client_secret) {
-        return NextResponse.json(
-          { error: "Stripe Embedded Checkoutの初期化に失敗しました" },
-          { status: 500 },
-        );
-      }
-
+    if (!paymentIntent.client_secret) {
       return NextResponse.json(
-        {
-          sessionId: sessionResult.id,
-          clientSecret: sessionResult.client_secret,
-          publishableKey,
-        },
+        { error: "決済フォームの初期化に失敗しました" },
+        { status: 500 },
       );
     }
 
     return NextResponse.json({
-      checkoutUrl: sessionResult.url,
-      sessionId: sessionResult.id,
-      clientSecret: sessionResult.client_secret,
+      clientSecret: paymentIntent.client_secret,
       publishableKey,
+      chargeOrderId: pendingOrder.id,
     });
   } catch (error) {
     console.error("[stripe][checkout] create failed", error);

@@ -49,6 +49,64 @@ async function handleCheckoutCompleted(
   });
 }
 
+async function handlePaymentIntentSucceeded(
+  paymentIntent: Stripe.PaymentIntent,
+  eventId: string,
+) {
+  if (paymentIntent.status !== "succeeded") return;
+
+  const metadata = paymentIntent.metadata ?? {};
+  const tenantId = requireString(metadata.tenantId, "metadata.tenantId");
+  const userId = requireString(metadata.userId, "metadata.userId");
+  const planId = requireString(metadata.planId, "metadata.planId");
+  const chargeOrderId = requireString(
+    metadata.chargeOrderId,
+    "metadata.chargeOrderId",
+  );
+
+  await completeCharge({
+    tenantId,
+    userId,
+    planId,
+    chargeOrderId,
+    paymentMethod: "CREDIT_CARD",
+    externalPaymentId: paymentIntent.id,
+    metadata: {
+      source: "stripe_webhook",
+      stripeEventId: eventId,
+      stripePaymentIntent: paymentIntent.id,
+    },
+  });
+}
+
+async function handlePaymentIntentFailed(
+  paymentIntent: Stripe.PaymentIntent,
+  eventId: string,
+) {
+  const whereOr: Array<{ id: string } | { stripePaymentId: string }> = [];
+  if (paymentIntent.metadata?.chargeOrderId) {
+    whereOr.push({ id: paymentIntent.metadata.chargeOrderId });
+  }
+  whereOr.push({ stripePaymentId: paymentIntent.id });
+
+  await prisma.chargeOrder.updateMany({
+    where: {
+      OR: whereOr,
+      status: "PENDING",
+    },
+    data: {
+      status: "FAILED",
+      metadata: {
+        source: "stripe_webhook",
+        stripePaymentFailed: true,
+        stripeEventId: eventId,
+        stripePaymentIntent: paymentIntent.id,
+        stripeFailureCode: paymentIntent.last_payment_error?.code ?? null,
+      },
+    },
+  });
+}
+
 async function handleCheckoutExpired(checkout: Stripe.Checkout.Session) {
   await prisma.chargeOrder.updateMany({
     where: {
@@ -115,6 +173,16 @@ export async function POST(req: NextRequest) {
       case "checkout.session.expired": {
         const checkout = event.data.object as Stripe.Checkout.Session;
         await handleCheckoutExpired(checkout);
+        break;
+      }
+      case "payment_intent.succeeded": {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        await handlePaymentIntentSucceeded(paymentIntent, event.id);
+        break;
+      }
+      case "payment_intent.payment_failed": {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        await handlePaymentIntentFailed(paymentIntent, event.id);
         break;
       }
       default:

@@ -97,7 +97,10 @@ export async function completeCharge(
     if (!order && input.externalPaymentId) {
       order = await tx.chargeOrder.findFirst({
         where: {
-          stripeSessionId: input.externalPaymentId,
+          OR: [
+            { stripeSessionId: input.externalPaymentId },
+            { stripePaymentId: input.externalPaymentId },
+          ],
           userId: input.userId,
           tenantId: input.tenantId,
         },
@@ -114,6 +117,10 @@ export async function completeCharge(
     }
 
     if (!order) {
+      const isPaymentIntent = input.externalPaymentId?.startsWith("pi_") ?? false;
+      const isCheckoutSession =
+        input.externalPaymentId?.startsWith("cs_") ?? false;
+
       order = await tx.chargeOrder.create({
         data: {
           tenantId: input.tenantId,
@@ -124,7 +131,8 @@ export async function completeCharge(
           bonus: plan.bonus,
           status: "PENDING",
           paymentMethod: input.paymentMethod ?? "CREDIT_CARD",
-          stripeSessionId: input.externalPaymentId,
+          stripeSessionId: isCheckoutSession ? input.externalPaymentId : undefined,
+          stripePaymentId: isPaymentIntent ? input.externalPaymentId : undefined,
           metadata: input.metadata as Prisma.InputJsonValue | undefined,
         },
       });
@@ -312,6 +320,12 @@ export async function completeCharge(
         status: "COMPLETED",
         completedAt: new Date(),
         paymentMethod: input.paymentMethod ?? order.paymentMethod,
+        ...(input.externalPaymentId?.startsWith("pi_")
+          ? { stripePaymentId: input.externalPaymentId }
+          : {}),
+        ...(input.externalPaymentId?.startsWith("cs_")
+          ? { stripeSessionId: input.externalPaymentId }
+          : {}),
         metadata: ({
           ...((order.metadata &&
             typeof order.metadata === "object" &&
