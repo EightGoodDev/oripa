@@ -27,6 +27,7 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<ChargePlan | null>(null);
   const [stripePromise, setStripePromise] = useState<
     ReturnType<typeof loadStripe> | null
   >(null);
@@ -48,6 +49,16 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
   );
 
   useEffect(() => {
+    if (!clientSecret) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [clientSecret]);
+
+  useEffect(() => {
     const status = searchParams.get("status");
     if (!status || handledStatusRef.current === status) return;
 
@@ -63,22 +74,29 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
     }
   }, [router, searchParams]);
 
-  const handleCharge = async (planId: string) => {
+  const closeCheckout = () => {
+    setClientSecret(null);
+    setSelectedPlan(null);
+  };
+
+  const handleCharge = async (plan: ChargePlan) => {
     if (!session?.user) {
       router.push("/login");
       return;
     }
 
-    setLoadingPlanId(planId);
+    setLoadingPlanId(plan.id);
+    setSelectedPlan(plan);
     try {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId }),
+        body: JSON.stringify({ planId: plan.id }),
       });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error ?? "エラーが発生しました");
+        setSelectedPlan(null);
         return;
       }
 
@@ -96,10 +114,12 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
 
       if (!data.checkoutUrl && !data.clientSecret) {
         toast.error("決済ページの生成に失敗しました");
+        setSelectedPlan(null);
         return;
       }
     } catch {
       toast.error("通信エラーが発生しました");
+      setSelectedPlan(null);
     } finally {
       setLoadingPlanId(null);
     }
@@ -148,7 +168,7 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
               </div>
               <Button
                 size="sm"
-                onClick={() => handleCharge(plan.id)}
+                onClick={() => handleCharge(plan)}
                 disabled={loadingPlanId !== null}
               >
                 {loadingPlanId === plan.id ? "遷移中..." : formatPrice(plan.price)}
@@ -159,24 +179,65 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
       </div>
 
       {stripePromise && checkoutOptions ? (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm p-4 overflow-auto">
-          <div className="max-w-3xl mx-auto mt-10 bg-gray-950 border border-gray-800 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold text-white">お支払い</h2>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setClientSecret(null)}
-              >
-                閉じる
-              </Button>
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto">
+          <div className="mx-auto mt-2 sm:mt-8 w-full max-w-5xl">
+            <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-gold-start/20 via-gold-end/10 to-gold-start/20" />
+
+              <div className="relative flex items-start justify-between gap-3 border-b border-slate-700 px-4 py-4 sm:px-6">
+                <div>
+                  <p className="text-[11px] font-semibold tracking-widest text-gold-end/80 uppercase">
+                    Secure Payment
+                  </p>
+                  <h2 className="text-base sm:text-lg font-bold text-white mt-1">
+                    コインチャージ決済
+                  </h2>
+                  <p className="text-xs text-slate-300 mt-1">
+                    カード情報はStripeで安全に処理されます
+                  </p>
+                </div>
+                <Button size="sm" variant="ghost" onClick={closeCheckout}>
+                  閉じる
+                </Button>
+              </div>
+
+              <div className="relative grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-4 p-4 sm:p-6">
+                <aside className="rounded-xl border border-slate-700 bg-slate-800/40 p-4 space-y-4">
+                  <div>
+                    <p className="text-[11px] text-slate-400">選択中プラン</p>
+                    <p className="text-lg font-bold text-white mt-1">
+                      🪙 {formatCoins(selectedPlan?.coins ?? 0)}
+                    </p>
+                    {selectedPlan?.bonus ? (
+                      <p className="text-xs text-emerald-400 mt-1">
+                        +{formatCoins(selectedPlan.bonus)} ボーナス
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+                    <p className="text-[11px] text-slate-400">お支払い金額</p>
+                    <p className="text-xl font-bold text-gold-end mt-1">
+                      {selectedPlan ? formatPrice(selectedPlan.price) : "-"}
+                    </p>
+                  </div>
+                  <div className="text-[11px] text-slate-400 leading-relaxed">
+                    <p>・決済完了後、コイン残高に即時反映されます。</p>
+                    <p>・完了しない場合は数秒後に画面を再読み込みしてください。</p>
+                  </div>
+                </aside>
+
+                <div className="rounded-xl border border-slate-700 bg-slate-950/60 p-2 sm:p-3">
+                  <div className="rounded-lg bg-white p-2 sm:p-3">
+                    <EmbeddedCheckoutProvider
+                      stripe={stripePromise}
+                      options={checkoutOptions}
+                    >
+                      <EmbeddedCheckout />
+                    </EmbeddedCheckoutProvider>
+                  </div>
+                </div>
+              </div>
             </div>
-            <EmbeddedCheckoutProvider
-              stripe={stripePromise}
-              options={checkoutOptions}
-            >
-              <EmbeddedCheckout />
-            </EmbeddedCheckoutProvider>
           </div>
         </div>
       ) : null}
