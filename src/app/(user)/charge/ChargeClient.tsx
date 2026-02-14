@@ -54,14 +54,25 @@ function PaymentElementForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [cardholderName, setCardholderName] = useState(defaultCardholderName ?? "");
+  const [billingCountry, setBillingCountry] = useState("JP");
+  const paymentElementOptions = useMemo(
+    () => ({
+      fields: {
+        billingDetails: {
+          name: "never" as const,
+          address: "never" as const,
+        },
+      },
+    }),
+    [],
+  );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!stripe || !elements || isSubmitting) return;
-
     const normalizedName = cardholderName.trim();
     if (!normalizedName) {
-      const message = "カード名義を入力してください";
+      const message = "カード名義（ローマ字）を入力してください";
       setErrorMessage(message);
       toast.error(message);
       return;
@@ -81,6 +92,9 @@ function PaymentElementForm({
           payment_method_data: {
             billing_details: {
               name: normalizedName,
+              address: {
+                country: billingCountry,
+              },
             },
           },
         },
@@ -111,7 +125,7 @@ function PaymentElementForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <PaymentElement />
+      <PaymentElement options={paymentElementOptions} />
       <div className="space-y-1">
         <label
           htmlFor="cardholderName"
@@ -128,6 +142,27 @@ function PaymentElementForm({
           autoComplete="cc-name"
           className="w-full h-10 px-3 rounded-lg border border-slate-600 bg-slate-900 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-gold-end"
         />
+      </div>
+      <div className="space-y-1">
+        <label
+          htmlFor="billingCountry"
+          className="text-xs font-medium text-slate-300"
+        >
+          国または地域
+        </label>
+        <select
+          id="billingCountry"
+          value={billingCountry}
+          onChange={(e) => setBillingCountry(e.target.value)}
+          className="w-full h-10 px-3 rounded-lg border border-slate-600 bg-slate-900 text-slate-100 focus:outline-none focus:border-gold-end"
+        >
+          <option value="JP">日本</option>
+          <option value="US">アメリカ</option>
+          <option value="KR">韓国</option>
+          <option value="TW">台湾</option>
+          <option value="HK">香港</option>
+          <option value="SG">シンガポール</option>
+        </select>
       </div>
       {errorMessage ? (
         <p className="text-xs text-red-400 bg-red-950/40 border border-red-900 rounded-md px-3 py-2">
