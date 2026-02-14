@@ -27,17 +27,31 @@ interface ChargePlan {
 interface PaymentFormProps {
   onClose: () => void;
   onCompleted: () => void;
+  defaultCardholderName?: string;
 }
 
-function PaymentElementForm({ onClose, onCompleted }: PaymentFormProps) {
+function PaymentElementForm({
+  onClose,
+  onCompleted,
+  defaultCardholderName,
+}: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [cardholderName, setCardholderName] = useState(defaultCardholderName ?? "");
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!stripe || !elements || isSubmitting) return;
+
+    const normalizedName = cardholderName.trim();
+    if (!normalizedName) {
+      const message = "カード名義を入力してください";
+      setErrorMessage(message);
+      toast.error(message);
+      return;
+    }
 
     setIsSubmitting(true);
     setErrorMessage(null);
@@ -46,6 +60,11 @@ function PaymentElementForm({ onClose, onCompleted }: PaymentFormProps) {
         elements,
         confirmParams: {
           return_url: `${window.location.origin}/charge?status=success`,
+          payment_method_data: {
+            billing_details: {
+              name: normalizedName,
+            },
+          },
         },
         redirect: "if_required",
       });
@@ -75,6 +94,23 @@ function PaymentElementForm({ onClose, onCompleted }: PaymentFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="space-y-1">
+        <label
+          htmlFor="cardholderName"
+          className="text-xs font-medium text-slate-300"
+        >
+          カード名義（ローマ字）
+        </label>
+        <input
+          id="cardholderName"
+          type="text"
+          value={cardholderName}
+          onChange={(e) => setCardholderName(e.target.value)}
+          placeholder="TARO YAMADA"
+          autoComplete="cc-name"
+          className="w-full h-10 px-3 rounded-lg border border-slate-600 bg-slate-900 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-gold-end"
+        />
+      </div>
       <PaymentElement />
       {errorMessage ? (
         <p className="text-xs text-red-400 bg-red-950/40 border border-red-900 rounded-md px-3 py-2">
@@ -334,6 +370,7 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
                     <PaymentElementForm
                       onClose={closeCheckout}
                       onCompleted={handlePaymentCompleted}
+                      defaultCardholderName={session?.user?.name ?? ""}
                     />
                   </Elements>
                 </div>
