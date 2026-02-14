@@ -13,7 +13,9 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:seed": "npx tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "tenant:bootstrap": "npx tsx scripts/tenant-bootstrap.ts",
+    "tenant:list": "npx tsx scripts/tenant-bootstrap.ts --list"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
@@ -23,6 +25,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
+    "@stripe/stripe-js": "^8.7.0",
     "@tanstack/react-query": "^5.90.20",
     "@vercel/blob": "^2.2.0",
     "bcryptjs": "^3.0.3",
@@ -39,6 +42,7 @@
     "react-hook-form": "^7.71.1",
     "recharts": "^3.7.0",
     "sonner": "^2.0.7",
+    "stripe": "^20.3.1",
     "tailwind-merge": "^3.4.0",
     "zod": "^4.3.6",
     "zustand": "^5.0.11"

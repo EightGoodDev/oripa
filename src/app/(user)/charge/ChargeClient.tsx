@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Button from "@/components/ui/Button";
 import { formatCoins, formatPrice } from "@/lib/utils/format";
@@ -18,6 +20,24 @@ interface ChargePlan {
 export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
   const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
+  const handledStatusRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const status = searchParams.get("status");
+    if (!status || handledStatusRef.current === status) return;
+
+    handledStatusRef.current = status;
+    if (status === "success") {
+      toast.success("決済完了を確認しました。残高反映まで数秒かかる場合があります。");
+      router.refresh();
+      return;
+    }
+    if (status === "cancel") {
+      toast.info("決済をキャンセルしました");
+    }
+  }, [router, searchParams]);
 
   const handleCharge = async (planId: string) => {
     if (!session?.user) {
@@ -25,11 +45,12 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
       return;
     }
 
+    setLoadingPlanId(planId);
     try {
-      const res = await fetch("/api/coins/complete", {
+      const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId, paymentMethod: "CREDIT_CARD" }),
+        body: JSON.stringify({ planId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -37,15 +58,16 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
         return;
       }
 
-      if (typeof data.newBalance === "number") {
-        toast.success("チャージが完了しました");
-        router.refresh();
-      } else {
-        toast.success("処理を完了しました");
-        router.refresh();
+      if (!data.checkoutUrl) {
+        toast.error("決済ページの生成に失敗しました");
+        return;
       }
+
+      window.location.assign(data.checkoutUrl as string);
     } catch {
       toast.error("通信エラーが発生しました");
+    } finally {
+      setLoadingPlanId(null);
     }
   };
 
@@ -90,8 +112,12 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
                   </p>
                 )}
               </div>
-              <Button size="sm" onClick={() => handleCharge(plan.id)}>
-                {formatPrice(plan.price)}
+              <Button
+                size="sm"
+                onClick={() => handleCharge(plan.id)}
+                disabled={loadingPlanId !== null}
+              >
+                {loadingPlanId === plan.id ? "遷移中..." : formatPrice(plan.price)}
               </Button>
             </div>
           </div>
