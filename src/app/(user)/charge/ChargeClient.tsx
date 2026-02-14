@@ -26,8 +26,17 @@ interface ChargePlan {
 
 interface PaymentFormProps {
   onClose: () => void;
-  onCompleted: () => void;
+  onCompleted: (paymentIntentId?: string) => Promise<void> | void;
   defaultCardholderName?: string;
+}
+
+interface PaymentResultNotice {
+  kind: "success" | "pending" | "error";
+  title: string;
+  description: string;
+  paymentIntentId?: string;
+  newBalance?: number;
+  chargedCoins?: number;
 }
 
 function PaymentElementForm({
@@ -81,8 +90,7 @@ function PaymentElementForm({
         (paymentIntent.status === "succeeded" ||
           paymentIntent.status === "processing")
       ) {
-        toast.success("決済完了を確認しました。残高を更新します。");
-        onCompleted();
+        await onCompleted(paymentIntent.id);
         return;
       }
 
@@ -130,7 +138,7 @@ function PaymentElementForm({
 }
 
 export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
@@ -140,15 +148,84 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
   >(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const handledStatusRef = useRef<string | null>(null);
+  const finalizedPaymentRef = useRef<string | null>(null);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [paymentResult, setPaymentResult] = useState<PaymentResultNotice | null>(
+    null,
+  );
 
   const closeCheckout = () => {
     setClientSecret(null);
     setSelectedPlan(null);
   };
 
-  const handlePaymentCompleted = () => {
+  const finalizePayment = async (paymentIntentId?: string) => {
+    if (!paymentIntentId) {
+      setPaymentResult({
+        kind: "pending",
+        title: "決済完了を確認中です",
+        description: "残高反映まで数秒かかる場合があります。しばらく待って更新してください。",
+      });
+      await update();
+      router.refresh();
+      return;
+    }
+
+    if (finalizedPaymentRef.current === paymentIntentId) return;
+    finalizedPaymentRef.current = paymentIntentId;
+    setIsFinalizing(true);
+
+    try {
+      const res = await fetch("/api/stripe/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentIntentId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? "決済確定の確認に失敗しました");
+      }
+
+      if (data.status === "succeeded" && data.result) {
+        setPaymentResult({
+          kind: "success",
+          title: "チャージが完了しました",
+          description: "コイン残高への反映が完了しています。",
+          paymentIntentId,
+          newBalance: data.result.newBalance,
+          chargedCoins: data.result.chargedCoins,
+        });
+        toast.success("チャージ完了");
+      } else {
+        setPaymentResult({
+          kind: "pending",
+          title: "決済は完了、反映待ちです",
+          description: "Webhook反映待ちです。数秒後に再確認してください。",
+          paymentIntentId,
+        });
+        finalizedPaymentRef.current = null;
+      }
+    } catch (error) {
+      setPaymentResult({
+        kind: "error",
+        title: "決済反映の確認に失敗しました",
+        description:
+          error instanceof Error
+            ? error.message
+            : "時間をおいて再度ご確認ください。",
+        paymentIntentId,
+      });
+      finalizedPaymentRef.current = null;
+    } finally {
+      await update();
+      router.refresh();
+      setIsFinalizing(false);
+    }
+  };
+
+  const handlePaymentCompleted = async (paymentIntentId?: string) => {
     closeCheckout();
-    router.refresh();
+    await finalizePayment(paymentIntentId);
   };
 
   const appearance = useMemo<Appearance>(
@@ -213,19 +290,19 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
 
   useEffect(() => {
     const status = searchParams.get("status");
+    const paymentIntentId = searchParams.get("payment_intent") ?? undefined;
     if (!status || handledStatusRef.current === status) return;
 
     handledStatusRef.current = status;
     if (status === "success") {
-      toast.success("決済完了を確認しました。残高反映まで数秒かかる場合があります。");
       closeCheckout();
-      router.refresh();
+      void finalizePayment(paymentIntentId);
       return;
     }
     if (status === "cancel") {
       toast.info("決済をキャンセルしました");
     }
-  }, [router, searchParams]);
+  }, [searchParams]);
 
   const handleCharge = async (plan: ChargePlan) => {
     if (!session?.user) {
@@ -235,6 +312,7 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
 
     setLoadingPlanId(plan.id);
     setSelectedPlan(plan);
+    setPaymentResult(null);
     try {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
@@ -267,6 +345,51 @@ export default function ChargeClient({ plans }: { plans: ChargePlan[] }) {
   return (
     <div className="pt-4 pb-4 px-4">
       <h1 className="text-lg font-bold text-white mb-2">コインチャージ</h1>
+
+      {paymentResult ? (
+        <div
+          className={`mb-4 rounded-xl border p-4 ${
+            paymentResult.kind === "success"
+              ? "border-emerald-600/40 bg-emerald-950/30"
+              : paymentResult.kind === "pending"
+                ? "border-amber-600/40 bg-amber-950/30"
+                : "border-red-600/40 bg-red-950/30"
+          }`}
+        >
+          <p className="text-sm font-bold text-white">{paymentResult.title}</p>
+          <p className="text-xs text-slate-300 mt-1">{paymentResult.description}</p>
+          {typeof paymentResult.chargedCoins === "number" ? (
+            <p className="text-xs text-emerald-300 mt-2">
+              追加コイン: +{formatCoins(paymentResult.chargedCoins)}
+            </p>
+          ) : null}
+          {typeof paymentResult.newBalance === "number" ? (
+            <p className="text-xs text-gold-end mt-1">
+              現在残高: 🪙 {formatCoins(paymentResult.newBalance)}
+            </p>
+          ) : null}
+          <div className="mt-3 flex items-center gap-2">
+            {paymentResult.paymentIntentId ? (
+              <Button
+                size="sm"
+                type="button"
+                onClick={() => void finalizePayment(paymentResult.paymentIntentId)}
+                disabled={isFinalizing}
+              >
+                {isFinalizing ? "確認中..." : "反映を再確認"}
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              variant="ghost"
+              type="button"
+              onClick={() => setPaymentResult(null)}
+            >
+              閉じる
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {session?.user && (
         <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 mb-6">
