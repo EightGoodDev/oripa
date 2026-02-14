@@ -13,6 +13,7 @@ const VALID_STATUSES: ChargeStatus[] = [
   "FAILED",
   "REFUNDED",
 ];
+const REFUNDABLE_STATUSES: ChargeStatus[] = ["COMPLETED", "REFUNDED"];
 
 function clampInt(value: string | null, fallback: number, min: number, max: number) {
   const parsed = Number(value);
@@ -93,7 +94,7 @@ export async function GET(req: NextRequest) {
     const refundableAmount = Math.max(order.amount - refundSummary.refundedAmount, 0);
     const canRefund =
       !!order.stripePaymentId &&
-      order.status !== "FAILED" &&
+      REFUNDABLE_STATUSES.includes(order.status) &&
       refundableAmount > 0;
 
     return {
