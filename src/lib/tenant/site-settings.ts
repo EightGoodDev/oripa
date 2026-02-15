@@ -6,6 +6,9 @@ export const SITE_SETTING_KEYS = {
   operatorCompany: "site.operator.company",
   operatorAddress: "site.operator.address",
   operatorPhone: "site.operator.phone",
+  secondhandDealerApproved: "site.legal.secondhandDealerApproved",
+  secondhandDealerLicenseNumber: "site.legal.secondhandDealerLicenseNumber",
+  secondhandDealerIssuingAuthority: "site.legal.secondhandDealerIssuingAuthority",
   supportEmail: "site.support.email",
   supportHours: "site.support.hours",
   representativeName: "site.legal.representative",
@@ -29,6 +32,9 @@ const SITE_SETTING_DEFAULTS: Record<SiteSettingField, string> = {
   operatorCompany: process.env.NEXT_PUBLIC_OPERATOR_COMPANY?.trim() || "未設定",
   operatorAddress: process.env.NEXT_PUBLIC_OPERATOR_ADDRESS?.trim() || "未設定",
   operatorPhone: process.env.NEXT_PUBLIC_OPERATOR_PHONE?.trim() || "未設定",
+  secondhandDealerApproved: "false",
+  secondhandDealerLicenseNumber: "",
+  secondhandDealerIssuingAuthority: "",
   supportEmail:
     process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "support@oripa.example",
   supportHours:
@@ -99,11 +105,17 @@ export async function getSiteSettings(tenantIdParam?: string) {
   const valueOf = (field: SiteSettingField) =>
     normalizeText(map.get(SITE_SETTING_KEYS[field])) ?? SITE_SETTING_DEFAULTS[field];
 
+  const secondhandDealerApprovedRaw = valueOf("secondhandDealerApproved");
+  const secondhandDealerApproved = secondhandDealerApprovedRaw === "true";
+
   return {
     operatorName: valueOf("operatorName"),
     operatorCompany: valueOf("operatorCompany"),
     operatorAddress: valueOf("operatorAddress"),
     operatorPhone: valueOf("operatorPhone"),
+    secondhandDealerApproved,
+    secondhandDealerLicenseNumber: valueOf("secondhandDealerLicenseNumber"),
+    secondhandDealerIssuingAuthority: valueOf("secondhandDealerIssuingAuthority"),
     supportEmail: valueOf("supportEmail"),
     supportHours: valueOf("supportHours"),
     representativeName: valueOf("representativeName"),
@@ -119,4 +131,3 @@ export async function getSiteSettings(tenantIdParam?: string) {
     privacyUpdatedAt: valueOf("privacyUpdatedAt"),
   };
 }
-

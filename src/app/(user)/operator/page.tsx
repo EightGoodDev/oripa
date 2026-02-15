@@ -2,22 +2,14 @@ export const metadata = {
   title: "運営者情報 - ORIPA",
 };
 
-function rowValue(value: string | undefined, fallback = "未設定") {
-  return value && value.trim().length > 0 ? value : fallback;
-}
+import { getSiteSettings } from "@/lib/tenant/site-settings";
 
-export default function OperatorPage() {
-  const operatorName = rowValue(process.env.NEXT_PUBLIC_OPERATOR_NAME, "ORIPA運営事務局");
-  const operatorCompany = rowValue(process.env.NEXT_PUBLIC_OPERATOR_COMPANY);
-  const operatorAddress = rowValue(process.env.NEXT_PUBLIC_OPERATOR_ADDRESS);
-  const supportEmail = rowValue(
-    process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
-    "support@oripa.example",
-  );
-  const supportHours = rowValue(
-    process.env.NEXT_PUBLIC_SUPPORT_HOURS,
-    "平日 10:00-18:00",
-  );
+export default async function OperatorPage() {
+  const settings = await getSiteSettings();
+
+  const hasSecondhandDetails =
+    settings.secondhandDealerLicenseNumber.trim().length > 0 ||
+    settings.secondhandDealerIssuingAuthority.trim().length > 0;
 
   return (
     <div className="px-4 py-6">
@@ -26,32 +18,90 @@ export default function OperatorPage() {
         <dl className="divide-y divide-gray-800 text-sm">
           <div className="grid grid-cols-[120px_1fr] gap-3 px-4 py-3">
             <dt className="text-gray-400">運営者名</dt>
-            <dd className="text-white">{operatorName}</dd>
+            <dd className="text-white">{settings.operatorName}</dd>
           </div>
           <div className="grid grid-cols-[120px_1fr] gap-3 px-4 py-3">
             <dt className="text-gray-400">事業者名</dt>
-            <dd className="text-white">{operatorCompany}</dd>
+            <dd className="text-white">{settings.operatorCompany}</dd>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] gap-3 px-4 py-3">
+            <dt className="text-gray-400">運営統括責任者</dt>
+            <dd className="text-white">{settings.representativeName}</dd>
           </div>
           <div className="grid grid-cols-[120px_1fr] gap-3 px-4 py-3">
             <dt className="text-gray-400">所在地</dt>
-            <dd className="text-white">{operatorAddress}</dd>
+            <dd className="text-white whitespace-pre-wrap">{settings.operatorAddress}</dd>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] gap-3 px-4 py-3">
+            <dt className="text-gray-400">電話番号</dt>
+            <dd className="text-white">{settings.operatorPhone}</dd>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] gap-3 px-4 py-3">
+            <dt className="text-gray-400">古物商許可</dt>
+            <dd className="text-white">
+              {settings.secondhandDealerApproved ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-200 border border-emerald-500/30 px-2 py-0.5 text-xs">
+                    取得済み
+                  </span>
+                  {hasSecondhandDetails ? (
+                    <span className="text-sm text-gray-200">
+                      {settings.secondhandDealerIssuingAuthority}
+                      {settings.secondhandDealerIssuingAuthority &&
+                      settings.secondhandDealerLicenseNumber
+                        ? " "
+                        : ""}
+                      {settings.secondhandDealerLicenseNumber}
+                    </span>
+                  ) : null}
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-full bg-gray-500/10 text-gray-200 border border-gray-600/40 px-2 py-0.5 text-xs">
+                  未取得
+                </span>
+              )}
+            </dd>
           </div>
           <div className="grid grid-cols-[120px_1fr] gap-3 px-4 py-3">
             <dt className="text-gray-400">連絡先</dt>
             <dd className="text-white break-all">
-              <a href={`mailto:${supportEmail}`} className="text-blue-300 hover:text-blue-200 underline">
-                {supportEmail}
+              <a href={`mailto:${settings.supportEmail}`} className="text-blue-300 hover:text-blue-200 underline">
+                {settings.supportEmail}
               </a>
             </dd>
           </div>
           <div className="grid grid-cols-[120px_1fr] gap-3 px-4 py-3">
             <dt className="text-gray-400">対応時間</dt>
-            <dd className="text-white">{supportHours}</dd>
+            <dd className="text-white">{settings.supportHours}</dd>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] gap-3 px-4 py-3">
+            <dt className="text-gray-400">販売業務内容</dt>
+            <dd className="text-white whitespace-pre-wrap">{settings.businessDescription}</dd>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] gap-3 px-4 py-3">
+            <dt className="text-gray-400">支払方法</dt>
+            <dd className="text-white whitespace-pre-wrap">{settings.paymentMethods}</dd>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] gap-3 px-4 py-3">
+            <dt className="text-gray-400">販売価格</dt>
+            <dd className="text-white whitespace-pre-wrap">{settings.servicePriceNote}</dd>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] gap-3 px-4 py-3">
+            <dt className="text-gray-400">追加料金</dt>
+            <dd className="text-white whitespace-pre-wrap">{settings.additionalFees}</dd>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] gap-3 px-4 py-3">
+            <dt className="text-gray-400">引き渡し時期</dt>
+            <dd className="text-white whitespace-pre-wrap">{settings.deliveryTime}</dd>
+          </div>
+          <div className="grid grid-cols-[120px_1fr] gap-3 px-4 py-3">
+            <dt className="text-gray-400">返品・キャンセル</dt>
+            <dd className="text-white whitespace-pre-wrap">{settings.returnPolicy}</dd>
           </div>
         </dl>
       </div>
       <p className="text-xs text-gray-500 mt-4">
-        正式な販売条件・返品条件などは、利用規約およびプライバシーポリシーをご確認ください。
+        詳細条件は利用規約・プライバシーポリシーをご確認ください。
       </p>
     </div>
   );

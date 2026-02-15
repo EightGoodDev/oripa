@@ -10,6 +10,9 @@ interface SiteSettingsForm {
   operatorCompany: string;
   operatorAddress: string;
   operatorPhone: string;
+  secondhandDealerApproved: boolean;
+  secondhandDealerLicenseNumber: string;
+  secondhandDealerIssuingAuthority: string;
   supportEmail: string;
   supportHours: string;
   representativeName: string;
@@ -34,6 +37,9 @@ const emptyForm: SiteSettingsForm = {
   operatorCompany: "",
   operatorAddress: "",
   operatorPhone: "",
+  secondhandDealerApproved: false,
+  secondhandDealerLicenseNumber: "",
+  secondhandDealerIssuingAuthority: "",
   supportEmail: "",
   supportHours: "",
   representativeName: "",
@@ -168,6 +174,47 @@ export default function SiteSettingsPage() {
               onChange={(e) => updateField("operatorPhone", e.target.value)}
             />
           </label>
+          <div className="md:col-span-2 rounded-lg border border-gray-800 bg-gray-950/40 p-3 space-y-2">
+            <p className="text-xs font-bold text-white">古物商許可</p>
+            <label className="flex items-center gap-2 text-xs text-gray-300">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-gold-mid"
+                checked={form.secondhandDealerApproved}
+                onChange={(e) =>
+                  updateField("secondhandDealerApproved", e.target.checked)
+                }
+              />
+              古物商の許可を取得済み
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="text-xs text-gray-400">
+                許可番号
+                <input
+                  className={inputClass}
+                  value={form.secondhandDealerLicenseNumber}
+                  onChange={(e) =>
+                    updateField("secondhandDealerLicenseNumber", e.target.value)
+                  }
+                  placeholder="例）第000000000000号"
+                />
+              </label>
+              <label className="text-xs text-gray-400">
+                許可公安委員会
+                <input
+                  className={inputClass}
+                  value={form.secondhandDealerIssuingAuthority}
+                  onChange={(e) =>
+                    updateField("secondhandDealerIssuingAuthority", e.target.value)
+                  }
+                  placeholder="例）東京都公安委員会"
+                />
+              </label>
+            </div>
+            <p className="text-[11px] text-gray-500">
+              ユーザー側の「運営者情報」ページに表示されます。
+            </p>
+          </div>
           <label className="text-xs text-gray-400">
             問い合わせメール（必須）
             <input
@@ -285,4 +332,3 @@ export default function SiteSettingsPage() {
     </div>
   );
 }
-

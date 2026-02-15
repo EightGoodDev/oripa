@@ -11,6 +11,14 @@ const siteSettingsSchema = z.object({
   operatorCompany: z.string().trim().max(200).optional().default(""),
   operatorAddress: z.string().trim().max(300).optional().default(""),
   operatorPhone: z.string().trim().max(64).optional().default(""),
+  secondhandDealerApproved: z.boolean().optional().default(false),
+  secondhandDealerLicenseNumber: z.string().trim().max(64).optional().default(""),
+  secondhandDealerIssuingAuthority: z
+    .string()
+    .trim()
+    .max(120)
+    .optional()
+    .default(""),
   supportEmail: z
     .string()
     .trim()
@@ -50,6 +58,12 @@ function toOverrideEntries(value: z.infer<typeof siteSettingsSchema>) {
     [SITE_SETTING_KEYS.operatorCompany, value.operatorCompany],
     [SITE_SETTING_KEYS.operatorAddress, value.operatorAddress],
     [SITE_SETTING_KEYS.operatorPhone, value.operatorPhone],
+    [SITE_SETTING_KEYS.secondhandDealerApproved, value.secondhandDealerApproved ? "true" : "false"],
+    [SITE_SETTING_KEYS.secondhandDealerLicenseNumber, value.secondhandDealerLicenseNumber],
+    [
+      SITE_SETTING_KEYS.secondhandDealerIssuingAuthority,
+      value.secondhandDealerIssuingAuthority,
+    ],
     [SITE_SETTING_KEYS.supportEmail, value.supportEmail],
     [SITE_SETTING_KEYS.supportHours, value.supportHours],
     [SITE_SETTING_KEYS.representativeName, value.representativeName],
@@ -131,4 +145,3 @@ export async function PUT(req: NextRequest) {
   const settings = await getSiteSettings(tenantId);
   return NextResponse.json(settings);
 }
-
