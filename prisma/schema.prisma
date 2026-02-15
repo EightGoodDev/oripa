@@ -118,6 +118,10 @@ model User {
   phone           String?
   phoneVerified   Boolean   @default(false)
   ageVerified     Boolean   @default(false)
+  termsAcceptedVersion   String?   @db.VarChar(32)
+  termsAcceptedAt        DateTime?
+  privacyAcceptedVersion String?   @db.VarChar(32)
+  privacyAcceptedAt      DateTime?
   role            UserRole  @default(USER)
   rank            UserRank  @default(BEGINNER)
   coins           Int       @default(0)

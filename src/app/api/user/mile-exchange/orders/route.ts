@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { resolveTenantId } from "@/lib/tenant/context";
+import { getLegalConsentStatus } from "@/lib/user/legal-consent";
 
 const createOrderSchema = z.object({
   itemId: z.string().min(1),
@@ -30,6 +31,17 @@ export async function POST(req: NextRequest) {
   const userId = session.user.id;
 
   try {
+    const legal = await getLegalConsentStatus({ tenantId, userId });
+    if (legal.needsTermsAcceptance || legal.needsPrivacyAcceptance) {
+      return NextResponse.json(
+        {
+          error:
+            "利用規約・プライバシーポリシーの同意が必要です。内容を確認してからご利用ください。",
+        },
+        { status: 403 },
+      );
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const [item, user] = await Promise.all([
         tx.mileRewardItem.findFirst({

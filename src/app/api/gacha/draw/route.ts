@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { weightedDraw } from "@/lib/gacha/engine";
 import { resolveTenantId } from "@/lib/tenant/context";
 import { getRankIndex } from "@/lib/rewards/rank-settings";
+import { getLegalConsentStatus } from "@/lib/user/legal-consent";
 import { Prisma, UserRank } from "@prisma/client";
 
 const ALLOWED_COUNTS = [1, 10];
@@ -31,6 +32,19 @@ export async function POST(req: NextRequest) {
 
     const userId = session?.user?.id ?? null;
     const tenantId = await resolveTenantId();
+
+    if (!isTrial && userId) {
+      const legal = await getLegalConsentStatus({ tenantId, userId });
+      if (legal.needsTermsAcceptance || legal.needsPrivacyAcceptance) {
+        return NextResponse.json(
+          {
+            error:
+              "利用規約・プライバシーポリシーの同意が必要です。内容を確認してからご利用ください。",
+          },
+          { status: 403 },
+        );
+      }
+    }
 
     // 2-12. Everything inside a DB transaction with row locking
     const result = await prisma.$transaction(

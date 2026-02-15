@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getStripeServerClient } from "@/lib/payments/stripe";
 import { mergeStripeMetadata } from "@/lib/payments/stripe-metadata";
 import { resolveTenantId } from "@/lib/tenant/context";
+import { getLegalConsentStatus } from "@/lib/user/legal-consent";
 
 const checkoutSchema = z.object({
   planId: z.string().min(1),
@@ -30,6 +31,17 @@ export async function POST(req: NextRequest) {
   const planId = parsed.data.planId;
 
   try {
+    const legal = await getLegalConsentStatus({ tenantId, userId });
+    if (legal.needsTermsAcceptance || legal.needsPrivacyAcceptance) {
+      return NextResponse.json(
+        {
+          error:
+            "利用規約・プライバシーポリシーの同意が必要です。内容を確認してからご利用ください。",
+        },
+        { status: 403 },
+      );
+    }
+
     const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY;
     if (!publishableKey) {
       return NextResponse.json(

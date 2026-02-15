@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { resolveTenantId } from "@/lib/tenant/context";
 import { generateUniqueReferralCode } from "@/lib/rewards/referral";
+import { getSiteSettings } from "@/lib/tenant/site-settings";
 
 const registerSchema = z.object({
   email: z.string().email("有効なメールアドレスを入力してください"),
@@ -22,16 +23,33 @@ const registerSchema = z.object({
   acceptPrivacy: z.boolean().refine((v) => v === true, {
     message: "プライバシーポリシーへの同意が必要です",
   }),
-  // For future audit/versioning (optional for now)
-  termsUpdatedAt: z.string().trim().max(32).optional(),
-  privacyUpdatedAt: z.string().trim().max(32).optional(),
+  termsUpdatedAt: z.string().trim().min(1).max(32),
+  privacyUpdatedAt: z.string().trim().min(1).max(32),
 });
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, password, name, inviteCode } = registerSchema.parse(body);
+    const { email, password, name, inviteCode, termsUpdatedAt, privacyUpdatedAt } =
+      registerSchema.parse(body);
     const tenantId = await resolveTenantId();
+    const settings = await getSiteSettings(tenantId);
+
+    if (termsUpdatedAt !== settings.termsUpdatedAt) {
+      return NextResponse.json(
+        { error: "利用規約が更新されました。最新の利用規約を確認して同意してください。" },
+        { status: 409 },
+      );
+    }
+    if (privacyUpdatedAt !== settings.privacyUpdatedAt) {
+      return NextResponse.json(
+        {
+          error:
+            "プライバシーポリシーが更新されました。最新のプライバシーポリシーを確認して同意してください。",
+        },
+        { status: 409 },
+      );
+    }
 
     const existing = await prisma.user.findUnique({
       where: { email },
@@ -46,6 +64,7 @@ export async function POST(req: NextRequest) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
+    const now = new Date();
 
     const user = await prisma.$transaction(async (tx) => {
       let inviterId: string | null = null;
@@ -87,6 +106,10 @@ export async function POST(req: NextRequest) {
           hashedPassword,
           referralCode,
           invitedByUserId: inviterId,
+          termsAcceptedVersion: settings.termsUpdatedAt,
+          termsAcceptedAt: now,
+          privacyAcceptedVersion: settings.privacyUpdatedAt,
+          privacyAcceptedAt: now,
         },
         select: { id: true, email: true, name: true },
       });

@@ -1,20 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import Button from "@/components/ui/Button";
+import { useRouter } from "next/navigation";
 import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 
-export default function RegisterPage() {
+type ConsentStatus = {
+  termsUpdatedAt: string;
+  privacyUpdatedAt: string;
+  needsTermsAcceptance: boolean;
+  needsPrivacyAcceptance: boolean;
+};
+
+export default function LegalReconsentGate() {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [status, setStatus] = useState<ConsentStatus | null>(null);
 
   const [legalLoading, setLegalLoading] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
@@ -27,6 +30,34 @@ export default function RegisterPage() {
   const [privacyViewed, setPrivacyViewed] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
+  const [submitError, setSubmitError] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const needsConsent =
+    Boolean(status?.needsTermsAcceptance) || Boolean(status?.needsPrivacyAcceptance);
+
+  useEffect(() => {
+    void (async () => {
+      setStatusLoading(true);
+      try {
+        const res = await fetch("/api/user/legal", { cache: "no-store" });
+        if (!res.ok) {
+          setStatus(null);
+          return;
+        }
+        const data = (await res.json()) as ConsentStatus;
+        setStatus(data);
+      } finally {
+        setStatusLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!needsConsent) return;
+    void ensureLegalLoaded();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsConsent]);
 
   async function ensureLegalLoaded() {
     if (termsText && privacyText) return;
@@ -59,7 +90,10 @@ export default function RegisterPage() {
     setPrivacyOpen(true);
   }
 
-  function onScrollToBottom(e: React.UIEvent<HTMLDivElement>, type: "terms" | "privacy") {
+  function onScrollToBottom(
+    e: React.UIEvent<HTMLDivElement>,
+    type: "terms" | "privacy",
+  ) {
     const el = e.currentTarget;
     const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
     if (!nearBottom) return;
@@ -67,117 +101,68 @@ export default function RegisterPage() {
     if (type === "privacy") setPrivacyViewed(true);
   }
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
+  async function acceptAndContinue() {
+    setSubmitError("");
     if (!acceptTerms || !acceptPrivacy) {
-      setError("利用規約とプライバシーポリシーの確認・同意が必要です");
+      setSubmitError("利用規約とプライバシーポリシーの確認・同意が必要です");
       return;
     }
     if (!termsUpdatedAt || !privacyUpdatedAt) {
-      setError("規約情報の取得に失敗しました。再読み込みしてからお試しください。");
+      setSubmitError("規約情報の取得に失敗しました。再読み込みしてからお試しください。");
       return;
     }
-
-    setLoading(true);
-
+    setSubmitting(true);
     try {
-      const res = await fetch("/api/auth/register", {
+      const res = await fetch("/api/user/legal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
-          email,
-          password,
-          inviteCode: inviteCode.trim() || undefined,
-          acceptTerms,
-          acceptPrivacy,
+          acceptTerms: true,
+          acceptPrivacy: true,
           termsUpdatedAt,
           privacyUpdatedAt,
         }),
       });
-
-      const data = await res.json();
-
+      const body = await res.json();
       if (!res.ok) {
-        setError(data.error);
+        setSubmitError(body?.error ?? "同意の保存に失敗しました");
+        if (res.status === 409) {
+          // Legal updated while reading. Reload latest text and reset viewed flags.
+          setTermsText("");
+          setPrivacyText("");
+          setTermsViewed(false);
+          setPrivacyViewed(false);
+          setAcceptTerms(false);
+          setAcceptPrivacy(false);
+          await ensureLegalLoaded();
+        }
         return;
       }
-
-      // Auto-login after registration
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError("登録は完了しましたが、自動ログインに失敗しました");
-      } else {
-        router.push("/");
-        router.refresh();
-      }
+      setStatus(body as ConsentStatus);
+      router.refresh();
+      // Hard reload ensures all client caches pick up the new status.
+      window.location.reload();
     } catch {
-      setError("登録に失敗しました");
+      setSubmitError("同意の保存に失敗しました");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
-  };
+  }
+
+  if (statusLoading || !needsConsent) return null;
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-center mb-1">
-          <span className="bg-gradient-to-r from-gold-start to-gold-end bg-clip-text text-transparent">
-            ORIPA
-          </span>
-        </h1>
-        <p className="text-center text-gray-400 text-sm mb-8">
-          新規アカウント登録
-        </p>
+    <>
+      <Modal isOpen={needsConsent} onClose={() => {}}>
+        <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
+          <h2 className="text-lg font-bold text-white">重要なお知らせ</h2>
+          <p className="text-sm text-gray-300 mt-2 leading-relaxed">
+            利用規約・プライバシーポリシーが更新されました。内容をご確認の上、同意をお願いします。
+          </p>
 
-        <form onSubmit={handleRegister} className="flex flex-col gap-4">
-          <input
-            type="text"
-            placeholder="ニックネーム"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="h-12 px-4 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-yellow-400"
-          />
-          <input
-            type="email"
-            placeholder="メールアドレス"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="h-12 px-4 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-yellow-400"
-          />
-          <input
-            type="password"
-            placeholder="パスワード（8文字以上、英数字）"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-            className="h-12 px-4 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-yellow-400"
-          />
-          <input
-            type="text"
-            placeholder="招待コード（任意）"
-            value={inviteCode}
-            onChange={(e) => setInviteCode(e.target.value)}
-            className="h-12 px-4 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-yellow-400"
-          />
-
-          {error && (
-            <p className="text-sm text-red-400 text-center">{error}</p>
-          )}
-
-          <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-3 space-y-2">
+          <div className="mt-4 rounded-xl border border-gray-800 bg-gray-950/40 p-3 space-y-2">
             <p className="text-xs text-gray-400">
-              登録前に必ずご確認ください
+              続行するには、最後までスクロールして同意してください
             </p>
             <div className="flex gap-2">
               <button
@@ -212,7 +197,9 @@ export default function RegisterPage() {
                 </Link>
                 （{termsUpdatedAt || "—"}）を確認し同意します
                 {!termsViewed ? (
-                  <span className="text-gray-500">（先に「利用規約を読む」から最後までスクロール）</span>
+                  <span className="text-gray-500">
+                    （先に「利用規約を読む」から最後までスクロール）
+                  </span>
                 ) : null}
               </span>
             </label>
@@ -231,31 +218,34 @@ export default function RegisterPage() {
                 </Link>
                 （{privacyUpdatedAt || "—"}）を確認し同意します
                 {!privacyViewed ? (
-                  <span className="text-gray-500">（先に「プラポリを読む」から最後までスクロール）</span>
+                  <span className="text-gray-500">
+                    （先に「プラポリを読む」から最後までスクロール）
+                  </span>
                 ) : null}
               </span>
             </label>
           </div>
 
-          <Button type="submit" size="lg" className="w-full" disabled={loading}>
-            {loading ? "登録中..." : "登録する"}
-          </Button>
-        </form>
+          {submitError ? (
+            <p className="text-sm text-red-400 mt-3">{submitError}</p>
+          ) : null}
 
-        <p className="text-center text-sm text-gray-500 mt-6">
-          既にアカウントをお持ちの方は{" "}
-          <Link
-            href="/login"
-            className="text-yellow-400 hover:text-yellow-300"
-          >
-            ログイン
-          </Link>
-        </p>
+          <div className="mt-4 flex gap-2">
+            <Button
+              size="lg"
+              className="w-full"
+              disabled={submitting}
+              onClick={acceptAndContinue}
+            >
+              {submitting ? "保存中..." : "同意して続ける"}
+            </Button>
+          </div>
 
-        <p className="text-xs text-gray-600 text-center mt-4">
-          登録には利用規約・プライバシーポリシーへの同意が必要です。
-        </p>
-      </div>
+          <p className="text-[11px] text-gray-500 mt-3">
+            同意せずに利用を継続することはできません。
+          </p>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={termsOpen}
@@ -266,7 +256,9 @@ export default function RegisterPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-white">利用規約</h2>
-              <p className="text-xs text-gray-500">最終更新日: {termsUpdatedAt || "—"}</p>
+              <p className="text-xs text-gray-500">
+                最終更新日: {termsUpdatedAt || "—"}
+              </p>
             </div>
             <button
               type="button"
@@ -308,8 +300,12 @@ export default function RegisterPage() {
         <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-white">プライバシーポリシー</h2>
-              <p className="text-xs text-gray-500">最終更新日: {privacyUpdatedAt || "—"}</p>
+              <h2 className="text-lg font-bold text-white">
+                プライバシーポリシー
+              </h2>
+              <p className="text-xs text-gray-500">
+                最終更新日: {privacyUpdatedAt || "—"}
+              </p>
             </div>
             <button
               type="button"
@@ -342,6 +338,6 @@ export default function RegisterPage() {
           </div>
         </div>
       </Modal>
-    </div>
+    </>
   );
 }

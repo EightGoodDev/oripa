@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { resolveTenantId } from "@/lib/tenant/context";
+import { getLegalConsentStatus } from "@/lib/user/legal-consent";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -16,6 +17,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const legal = await getLegalConsentStatus({ tenantId, userId: session.user.id });
+    if (legal.needsTermsAcceptance || legal.needsPrivacyAcceptance) {
+      return NextResponse.json(
+        {
+          error:
+            "利用規約・プライバシーポリシーの同意が必要です。内容を確認してからご利用ください。",
+        },
+        { status: 403 },
+      );
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const item = await tx.ownedItem.findUnique({
         where: { id: itemId },
