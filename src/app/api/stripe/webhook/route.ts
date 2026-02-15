@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/db/prisma";
 import { completeCharge } from "@/lib/payments/complete-charge";
 import { getStripeServerClient } from "@/lib/payments/stripe";
+import { mergeStripeMetadata } from "@/lib/payments/stripe-metadata";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -75,6 +76,7 @@ async function handlePaymentIntentSucceeded(
       source: "stripe_webhook",
       stripeEventId: eventId,
       stripePaymentIntent: paymentIntent.id,
+      stripePaymentIntentStatus: paymentIntent.status,
     },
   });
 }
@@ -89,46 +91,56 @@ async function handlePaymentIntentFailed(
   }
   whereOr.push({ stripePaymentId: paymentIntent.id });
 
-  await prisma.chargeOrder.updateMany({
-    where: {
-      OR: whereOr,
-      status: "PENDING",
-    },
-    data: {
-      status: "FAILED",
-      metadata: {
-        source: "stripe_webhook",
-        stripePaymentFailed: true,
-        stripeEventId: eventId,
-        stripePaymentIntent: paymentIntent.id,
-        stripeFailureCode: paymentIntent.last_payment_error?.code ?? null,
-      },
-    },
+  const targets = await prisma.chargeOrder.findMany({
+    where: { OR: whereOr, status: "PENDING" },
+    select: { id: true, metadata: true },
   });
+
+  for (const row of targets) {
+    await prisma.chargeOrder.update({
+      where: { id: row.id },
+      data: {
+        status: "FAILED",
+        metadata: mergeStripeMetadata(row.metadata, {
+          source: "stripe_webhook",
+          paymentIntentId: paymentIntent.id,
+          paymentIntentStatus: paymentIntent.status,
+          paymentFailed: true,
+          stripeEventId: eventId,
+          failureCode: paymentIntent.last_payment_error?.code ?? null,
+          updatedAt: new Date().toISOString(),
+        }),
+      },
+    });
+  }
 }
 
 async function handleCheckoutExpired(checkout: Stripe.Checkout.Session) {
-  await prisma.chargeOrder.updateMany({
+  const targets = await prisma.chargeOrder.findMany({
     where: {
       OR: [
-        {
-          id: checkout.metadata?.chargeOrderId ?? undefined,
-        },
-        {
-          stripeSessionId: checkout.id,
-        },
+        { id: checkout.metadata?.chargeOrderId ?? undefined },
+        { stripeSessionId: checkout.id },
       ],
       status: "PENDING",
     },
-    data: {
-      status: "FAILED",
-      metadata: {
-        source: "stripe_webhook",
-        stripeExpired: true,
-        stripeSessionId: checkout.id,
-      },
-    },
+    select: { id: true, metadata: true },
   });
+
+  for (const row of targets) {
+    await prisma.chargeOrder.update({
+      where: { id: row.id },
+      data: {
+        status: "FAILED",
+        metadata: mergeStripeMetadata(row.metadata, {
+          source: "stripe_webhook",
+          checkoutSessionId: checkout.id,
+          checkoutExpired: true,
+          updatedAt: new Date().toISOString(),
+        }),
+      },
+    });
+  }
 }
 
 export async function POST(req: NextRequest) {

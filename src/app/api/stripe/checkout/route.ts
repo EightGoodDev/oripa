@@ -4,6 +4,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { getStripeServerClient } from "@/lib/payments/stripe";
+import { mergeStripeMetadata } from "@/lib/payments/stripe-metadata";
 import { resolveTenantId } from "@/lib/tenant/context";
 
 const checkoutSchema = z.object({
@@ -105,6 +106,11 @@ export async function POST(req: NextRequest) {
       where: { id: pendingOrder.id },
       data: {
         stripePaymentId: paymentIntent.id,
+        metadata: mergeStripeMetadata(pendingOrder.metadata, {
+          paymentIntentId: paymentIntent.id,
+          paymentIntentStatus: paymentIntent.status,
+          updatedAt: new Date().toISOString(),
+        }),
       },
     });
 

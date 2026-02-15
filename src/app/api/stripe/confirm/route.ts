@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import { completeCharge } from "@/lib/payments/complete-charge";
 import { getStripeServerClient } from "@/lib/payments/stripe";
+import { mergeStripeMetadata } from "@/lib/payments/stripe-metadata";
 import { resolveTenantId } from "@/lib/tenant/context";
 
 export const runtime = "nodejs";
@@ -85,6 +86,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Persist the latest Stripe status for funnel/ops (best-effort).
+    try {
+      const existingOrder = await prisma.chargeOrder.findFirst({
+        where: { id: chargeOrderId, tenantId, userId },
+        select: { metadata: true },
+      });
+      if (existingOrder) {
+        await prisma.chargeOrder.update({
+          where: { id: chargeOrderId },
+          data: {
+            metadata: mergeStripeMetadata(existingOrder.metadata, {
+              paymentIntentId: paymentIntent.id,
+              paymentIntentStatus: paymentIntent.status,
+              updatedAt: new Date().toISOString(),
+            }),
+          },
+        });
+      }
+    } catch (e) {
+      console.error("[stripe][confirm] failed to persist status", e);
+    }
+
     if (paymentIntent.status !== "succeeded") {
       return NextResponse.json({
         status: paymentIntent.status,
@@ -102,6 +125,7 @@ export async function POST(req: NextRequest) {
       metadata: {
         source: "stripe_confirm_api",
         stripePaymentIntent: paymentIntent.id,
+        stripePaymentIntentStatus: paymentIntent.status,
       },
     });
 

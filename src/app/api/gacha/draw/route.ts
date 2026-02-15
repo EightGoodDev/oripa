@@ -134,6 +134,7 @@ export async function POST(req: NextRequest) {
         for (let i = 0; i < count; i++) {
           // 7. Last-one check
           let selectedPackPrizeId: string | null = null;
+          let usedLastOne = false;
 
           if (currentStock === 1 && pack.lastOnePrizeId) {
             const lastOnePP = packPrizes.find(
@@ -141,18 +142,51 @@ export async function POST(req: NextRequest) {
             );
             if (lastOnePP) {
               selectedPackPrizeId = lastOnePP.id;
+              usedLastOne = true;
             }
           }
 
           // Server-side weighted draw (CSPRNG)
           if (!selectedPackPrizeId) {
-            selectedPackPrizeId = weightedDraw(
-              packPrizes.map((pp) => ({
-                id: pp.id,
-                weight: pp.weight,
-                remainingQuantity: pp.remainingQuantity,
-              })),
-            );
+            // Retry a few times in case concurrent draws consumed the last unit.
+            for (let attempt = 0; attempt < 5; attempt++) {
+              selectedPackPrizeId = weightedDraw(
+                packPrizes.map((pp) => ({
+                  id: pp.id,
+                  weight: pp.weight,
+                  remainingQuantity: pp.remainingQuantity,
+                })),
+              );
+
+              if (!selectedPackPrizeId) break;
+
+              if (!isTrial) {
+                // Prevent negative inventory by conditioning on remainingQuantity > 0.
+                const updated = await tx.packPrize.updateMany({
+                  where: {
+                    id: selectedPackPrizeId,
+                    remainingQuantity: { gt: 0 },
+                  },
+                  data: { remainingQuantity: { decrement: 1 } },
+                });
+
+                if (updated.count === 1) {
+                  const selectedPP = packPrizes.find(
+                    (pp) => pp.id === selectedPackPrizeId,
+                  )!;
+                  selectedPP.remainingQuantity--;
+                  break;
+                }
+
+                // The selected prize just ran out. Try again with updated local state.
+                const local = packPrizes.find((pp) => pp.id === selectedPackPrizeId);
+                if (local) local.remainingQuantity = 0;
+                selectedPackPrizeId = null;
+                continue;
+              }
+
+              break;
+            }
           }
 
           if (!selectedPackPrizeId) {
@@ -164,12 +198,15 @@ export async function POST(req: NextRequest) {
           )!;
 
           // 8. Decrement prize quantity (non-trial only)
-          if (!isTrial) {
-            await tx.packPrize.update({
-              where: { id: selectedPackPrizeId },
+          // Note: already decremented above for the weighted draw path.
+          if (!isTrial && usedLastOne) {
+            const updated = await tx.packPrize.updateMany({
+              where: { id: selectedPackPrizeId, remainingQuantity: { gt: 0 } },
               data: { remainingQuantity: { decrement: 1 } },
             });
-            // Update local state for subsequent draws in this batch
+            if (updated.count !== 1) {
+              throw new Error("景品在庫の更新に失敗しました");
+            }
             selectedPP.remainingQuantity--;
           }
 

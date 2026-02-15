@@ -8,6 +8,9 @@ import { formatCoins } from "@/lib/utils/format";
 
 export default function OripaCard({ pack }: { pack: PackListItem }) {
   const isAlmostGone = pack.remainingStock / pack.totalStock < 0.15;
+  const endsAt = pack.endsAt ? new Date(pack.endsAt) : null;
+  const endingSoon =
+    endsAt ? endsAt.getTime() - Date.now() < 48 * 60 * 60 * 1000 : false;
 
   return (
     <Link href={`/oripa/${pack.id}`} className="block group">
@@ -43,6 +46,23 @@ export default function OripaCard({ pack }: { pack: PackListItem }) {
           <p className="text-yellow-400 font-bold text-sm mt-1">
             🪙 {formatCoins(pack.pricePerDraw)} / 回
           </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-400">
+            <span>
+              在庫{" "}
+              <span className="text-white font-bold">
+                {formatCoins(pack.remainingStock)}
+              </span>
+              <span className="text-gray-600"> / {formatCoins(pack.totalStock)}口</span>
+            </span>
+            {endsAt ? (
+              <span className={endingSoon ? "text-orange-300 font-bold" : ""}>
+                終了 {endsAt.toLocaleDateString("ja-JP")}
+              </span>
+            ) : null}
+            {pack.hasLastOnePrize ? (
+              <span className="text-purple-300 font-bold">保証: ラストワン</span>
+            ) : null}
+          </div>
           <div className="mt-2">
             <RemainingBar
               remaining={pack.remainingStock}

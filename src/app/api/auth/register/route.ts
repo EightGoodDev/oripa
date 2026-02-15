@@ -16,6 +16,15 @@ const registerSchema = z.object({
     ),
   name: z.string().min(1, "名前を入力してください").max(50),
   inviteCode: z.string().trim().min(4).max(20).optional(),
+  acceptTerms: z.boolean().refine((v) => v === true, {
+    message: "利用規約への同意が必要です",
+  }),
+  acceptPrivacy: z.boolean().refine((v) => v === true, {
+    message: "プライバシーポリシーへの同意が必要です",
+  }),
+  // For future audit/versioning (optional for now)
+  termsUpdatedAt: z.string().trim().max(32).optional(),
+  privacyUpdatedAt: z.string().trim().max(32).optional(),
 });
 
 export async function POST(req: NextRequest) {

@@ -29,6 +29,7 @@ interface PaymentRow {
   refundedMiles: number;
   refundableAmount: number;
   canRefund: boolean;
+  stripePaymentIntentStatus?: string | null;
 }
 
 interface PaymentListResponse {
@@ -37,6 +38,16 @@ interface PaymentListResponse {
   pageSize: number;
   total: number;
   totalPages: number;
+}
+
+interface FunnelResponse {
+  since: string;
+  buckets: Record<string, number>;
+  rates: {
+    completedRate: number;
+    failedRate: number;
+    refundedRate: number;
+  };
 }
 
 type RefundMode = "FULL" | "PARTIAL";
@@ -72,6 +83,7 @@ export default function AdminPaymentsPage() {
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const [refunding, setRefunding] = useState(false);
+  const [funnel, setFunnel] = useState<FunnelResponse | null>(null);
 
   const fetchPayments = useCallback(async () => {
     setLoading(true);
@@ -100,6 +112,27 @@ export default function AdminPaymentsPage() {
   useEffect(() => {
     void fetchPayments();
   }, [fetchPayments]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/admin/payments/funnel?since=7d", {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as FunnelResponse;
+        if (cancelled) return;
+        setFunnel(data);
+      } catch {
+        // ignore
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setPage(1);
@@ -150,6 +183,15 @@ export default function AdminPaymentsPage() {
           className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border ${statusBadge(row.status)}`}
         >
           {row.status}
+        </span>
+      ),
+    },
+    {
+      key: "stripePaymentIntentStatus",
+      label: "Stripe",
+      render: (row) => (
+        <span className="text-xs text-gray-400">
+          {row.stripePaymentIntentStatus ?? "—"}
         </span>
       ),
     },
@@ -243,6 +285,42 @@ export default function AdminPaymentsPage() {
         <h1 className="text-2xl font-bold">決済履歴管理</h1>
         <div className="text-sm text-gray-400">{formatCoins(total)} 件</div>
       </div>
+
+      {funnel ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+            <p className="text-xs text-gray-500">作成</p>
+            <p className="text-xl font-bold">{formatCoins(funnel.buckets.created ?? 0)}</p>
+          </div>
+          <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+            <p className="text-xs text-gray-500">完了</p>
+            <p className="text-xl font-bold text-green-400">
+              {formatCoins(funnel.buckets.completed ?? 0)}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              CVR {(funnel.rates.completedRate * 100).toFixed(1)}%
+            </p>
+          </div>
+          <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+            <p className="text-xs text-gray-500">失敗</p>
+            <p className="text-xl font-bold text-red-400">
+              {formatCoins(funnel.buckets.failed ?? 0)}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {(funnel.rates.failedRate * 100).toFixed(1)}%
+            </p>
+          </div>
+          <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+            <p className="text-xs text-gray-500">返金</p>
+            <p className="text-xl font-bold text-purple-300">
+              {formatCoins(funnel.buckets.refunded ?? 0)}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {(funnel.rates.refundedRate * 100).toFixed(1)}%
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-3">
         <input

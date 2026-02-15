@@ -3,6 +3,7 @@ import { ChargeStatus, Prisma } from "@prisma/client";
 import { requireAdmin } from "@/lib/admin/auth";
 import { prisma } from "@/lib/db/prisma";
 import { parseChargeRefundSummary } from "@/lib/payments/refund-metadata";
+import { readStripePaymentIntentStatus } from "@/lib/payments/stripe-metadata";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
@@ -92,6 +93,7 @@ export async function GET(req: NextRequest) {
   const items = orders.map((order) => {
     const refundSummary = parseChargeRefundSummary(order.metadata);
     const refundableAmount = Math.max(order.amount - refundSummary.refundedAmount, 0);
+    const stripePaymentIntentStatus = readStripePaymentIntentStatus(order.metadata);
     const canRefund =
       !!order.stripePaymentId &&
       REFUNDABLE_STATUSES.includes(order.status) &&
@@ -116,6 +118,7 @@ export async function GET(req: NextRequest) {
       refundLogs: refundSummary.logs,
       refundableAmount,
       canRefund,
+      stripePaymentIntentStatus,
     };
   });
 
