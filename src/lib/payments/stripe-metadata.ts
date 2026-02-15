@@ -8,7 +8,7 @@ function isJsonObject(
 
 export function mergeChargeOrderMetadata(
   metadata: Prisma.JsonValue | null | undefined,
-  patch: Record<string, unknown>,
+  patch: Record<string, Prisma.JsonValue>,
 ): Prisma.InputJsonValue {
   const base: Prisma.JsonObject = isJsonObject(metadata) ? { ...metadata } : {};
   return { ...base, ...patch } as Prisma.InputJsonValue;
@@ -16,11 +16,13 @@ export function mergeChargeOrderMetadata(
 
 export function mergeStripeMetadata(
   metadata: Prisma.JsonValue | null | undefined,
-  stripePatch: Record<string, unknown>,
+  stripePatch: Record<string, Prisma.JsonValue>,
 ): Prisma.InputJsonValue {
   const base: Prisma.JsonObject = isJsonObject(metadata) ? { ...metadata } : {};
-  const existingStripe = isJsonObject(base.stripe) ? { ...base.stripe } : {};
-  base.stripe = { ...existingStripe, ...stripePatch };
+  const existingStripe: Prisma.JsonObject = isJsonObject(base.stripe)
+    ? { ...base.stripe }
+    : {};
+  base.stripe = { ...existingStripe, ...stripePatch } as Prisma.JsonValue;
   return base as Prisma.InputJsonValue;
 }
 
@@ -33,4 +35,3 @@ export function readStripePaymentIntentStatus(
   const s = stripe.paymentIntentStatus;
   return typeof s === "string" ? s : null;
 }
-
