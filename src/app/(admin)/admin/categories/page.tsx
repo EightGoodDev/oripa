@@ -23,6 +23,25 @@ const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const DEFAULT_TAB_BG = "#facc15";
 const DEFAULT_TAB_TEXT = "#111827";
 
+const TAB_PRESETS: Array<{
+  label: string;
+  bg: string;
+  text: string;
+}> = [
+  { label: "Gold", bg: "#facc15", text: "#111827" },
+  { label: "Black", bg: "#111827", text: "#f9fafb" },
+  { label: "White", bg: "#f9fafb", text: "#111827" },
+  { label: "Blue", bg: "#2563eb", text: "#ffffff" },
+  { label: "Sky", bg: "#0ea5e9", text: "#ffffff" },
+  { label: "Teal", bg: "#14b8a6", text: "#052e2b" },
+  { label: "Green", bg: "#22c55e", text: "#052e2b" },
+  { label: "Orange", bg: "#f97316", text: "#111827" },
+  { label: "Red", bg: "#ef4444", text: "#ffffff" },
+  { label: "Pink", bg: "#ec4899", text: "#ffffff" },
+  { label: "Purple", bg: "#7c3aed", text: "#ffffff" },
+  { label: "Slate", bg: "#334155", text: "#f9fafb" },
+] as const;
+
 function normalizeColorForPicker(value: string | null, fallback: string) {
   const raw = value?.trim() ?? "";
   if (!HEX_COLOR_PATTERN.test(raw)) return fallback;
@@ -33,6 +52,28 @@ function normalizeColorForPicker(value: string | null, fallback: string) {
     return `#${r}${r}${g}${g}${b}${b}`;
   }
   return raw.toLowerCase();
+}
+
+function parseHexColorToRgb(value: string): { r: number; g: number; b: number } | null {
+  const normalized = value.trim();
+  if (!HEX_COLOR_PATTERN.test(normalized)) return null;
+  const full =
+    normalized.length === 4
+      ? `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`
+      : normalized;
+  const r = Number.parseInt(full.slice(1, 3), 16);
+  const g = Number.parseInt(full.slice(3, 5), 16);
+  const b = Number.parseInt(full.slice(5, 7), 16);
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+  return { r, g, b };
+}
+
+function suggestTextColor(bgHex: string) {
+  const rgb = parseHexColorToRgb(bgHex);
+  if (!rgb) return DEFAULT_TAB_TEXT;
+  // Perceived luminance (sRGB) for quick contrast pick.
+  const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+  return luminance > 0.62 ? "#111827" : "#ffffff";
 }
 
 export default function CategoriesPage() {
@@ -365,7 +406,14 @@ export default function CategoriesPage() {
                             )
                           }
                           placeholder="#RRGGBB"
-                          className={inputClass}
+                          className={[
+                            inputClass,
+                            category.tabBackgroundColor &&
+                            category.tabBackgroundColor.trim().length > 0 &&
+                            !HEX_COLOR_PATTERN.test(category.tabBackgroundColor.trim())
+                              ? "border-red-500"
+                              : "",
+                          ].join(" ")}
                         />
                       </label>
                       <label className="text-xs text-gray-400 flex items-center gap-2">
@@ -405,9 +453,98 @@ export default function CategoriesPage() {
                             )
                           }
                           placeholder="#RRGGBB"
-                          className={inputClass}
+                          className={[
+                            inputClass,
+                            category.tabTextColor &&
+                            category.tabTextColor.trim().length > 0 &&
+                            !HEX_COLOR_PATTERN.test(category.tabTextColor.trim())
+                              ? "border-red-500"
+                              : "",
+                          ].join(" ")}
                         />
                       </label>
+                    </div>
+
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] text-gray-500">
+                          プリセット（ワンクリックで背景+文字）
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="text-[11px] text-gray-300 hover:text-white underline underline-offset-2"
+                            onClick={() =>
+                              setCategories((prev) =>
+                                prev.map((row) =>
+                                  row.id === category.id
+                                    ? {
+                                        ...row,
+                                        tabTextColor: suggestTextColor(
+                                          normalizeColorForPicker(
+                                            row.tabBackgroundColor,
+                                            DEFAULT_TAB_BG,
+                                          ),
+                                        ),
+                                      }
+                                    : row,
+                                ),
+                              )
+                            }
+                          >
+                            文字色を自動
+                          </button>
+                          <button
+                            type="button"
+                            className="text-[11px] text-gray-400 hover:text-white underline underline-offset-2"
+                            onClick={() =>
+                              setCategories((prev) =>
+                                prev.map((row) =>
+                                  row.id === category.id
+                                    ? {
+                                        ...row,
+                                        tabBackgroundColor: null,
+                                        tabTextColor: null,
+                                      }
+                                    : row,
+                                ),
+                              )
+                            }
+                          >
+                            リセット
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {TAB_PRESETS.map((preset) => (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            className="h-8 px-2 rounded-lg border border-gray-700 hover:border-gray-500 transition-colors text-xs font-bold"
+                            style={{
+                              backgroundColor: preset.bg,
+                              color: preset.text,
+                            }}
+                            onClick={() =>
+                              setCategories((prev) =>
+                                prev.map((row) =>
+                                  row.id === category.id
+                                    ? {
+                                        ...row,
+                                        tabBackgroundColor: preset.bg,
+                                        tabTextColor: preset.text,
+                                      }
+                                    : row,
+                                ),
+                              )
+                            }
+                            title={`${preset.label} (${preset.bg} / ${preset.text})`}
+                          >
+                            Aa
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
